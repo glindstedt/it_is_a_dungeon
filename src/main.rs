@@ -1,9 +1,12 @@
+use audio::{SoundResource};
 use bracket_lib::prelude::*;
+use kira::{Frame, instance::InstanceSettings, manager::{AudioManager, AudioManagerSettings}, sound::SoundSettings};
 use specs::{
     prelude::*,
     saveload::{SimpleMarker, SimpleMarkerAllocator},
 };
 
+mod audio;
 mod components;
 mod console;
 mod gamelog;
@@ -27,6 +30,7 @@ pub enum RunState {
     AwaitingInput,
     Console,
     PreRun,
+    PostRun,
     PlayerTurn,
     MonsterTurn,
     ShowInventory,
@@ -38,6 +42,7 @@ pub enum RunState {
     MainMenu {
         menu_selection: gui::MainMenuSelection,
     },
+    Loading,
     SaveGame,
 }
 
@@ -89,6 +94,7 @@ impl GameState for State {
         // To draw or not to draw???
         match new_runstate {
             RunState::MainMenu { .. } => {}
+            // TODO loading
             _ => {
                 draw_map(&self.ecs, ctx);
 
@@ -114,7 +120,21 @@ impl GameState for State {
             // Initial
             RunState::PreRun => {
                 self.run_systems();
+
+                // Start audio loop
+                let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+                // TODO handle error
+                sound_resource.play_sound("assets/audio/gr1.ogg", InstanceSettings::default().loop_start(0f64)).unwrap();
+
                 new_runstate = RunState::AwaitingInput;
+            }
+            RunState::PostRun => {
+                // Stop audio loop
+                let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+                sound_resource.stop_all_sounds();
+                new_runstate = RunState::MainMenu {
+                    menu_selection: gui::MainMenuSelection::LoadGame,
+                };
             }
             // Debug console
             RunState::Console => {
@@ -212,7 +232,13 @@ impl GameState for State {
                     gui::MainMenuResult::Selected { selected } => match selected {
                         gui::MainMenuSelection::NewGame => {
                             new_game(&mut self.ecs);
-                            new_runstate = RunState::PreRun
+
+                            // Load audio
+                            let url = "assets/audio/gr1.ogg";
+                            let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+                            sound_resource.load_audio(url);
+
+                            new_runstate = RunState::Loading
                         }
                         gui::MainMenuSelection::LoadGame => {
                             match systems::load_game(&mut self.ecs) {
@@ -229,14 +255,23 @@ impl GameState for State {
                     },
                 }
             }
+            RunState::Loading => {
+                let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+                let mut audio_manager = self.ecs.fetch_mut::<AudioManager>();
+                if !sound_resource.finished_loading() {
+                    bracket_lib::terminal::console::log("Handling load queue...");
+                    sound_resource.handle_load_queue(&mut audio_manager);
+                } else {
+                    bracket_lib::terminal::console::log("Loaded!");
+                    new_runstate = RunState::PreRun
+                }
+            }
             RunState::SaveGame => {
                 match systems::save_game(&mut self.ecs) {
                     Ok(_) => {}
                     Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                 }
-                new_runstate = RunState::MainMenu {
-                    menu_selection: gui::MainMenuSelection::LoadGame,
-                }
+                new_runstate = RunState::PostRun;
             }
         }
 
@@ -331,6 +366,11 @@ fn main() -> BError {
         menu_selection: gui::MainMenuSelection::NewGame,
     });
     state.ecs.insert(console::Console::new());
+
+    let audio_manager = AudioManager::new(AudioManagerSettings::default())
+        .expect("Unable to initialize audio");
+    state.ecs.insert(audio_manager);
+    state.ecs.insert(SoundResource::default());
 
     new_game(&mut state.ecs);
 

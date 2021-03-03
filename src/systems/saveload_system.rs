@@ -205,8 +205,6 @@ pub fn finalize_serializer(_ser: Serializer<impl io::Write>) -> anyhow::Result<(
 }
 
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use io::BufWriter;
 
 #[cfg(target_arch = "wasm32")]

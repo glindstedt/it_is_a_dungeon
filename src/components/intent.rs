@@ -3,8 +3,8 @@ use specs::{
     error::NoError,
     prelude::*,
     saveload::{ConvertSaveload, Marker},
+    Component, ConvertSaveload,
 };
-use specs_derive::{Component, ConvertSaveload};
 
 use crate::components::Point;
 
