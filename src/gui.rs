@@ -1,7 +1,7 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::map::Map;
+use crate::{components::GivenName, map::{Map, TileType}};
 use crate::{components::InBackpack, console};
 use crate::{components::Viewshed, gamelog::GameLog};
 use crate::{
@@ -30,7 +30,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut BTerm) -> MainMenuResult {
         15,
         RGB::named(YELLOW),
         RGB::named(BLACK),
-        "Rust Roguelike Tutorial",
+        "It is a game",
     );
 
     if let RunState::MainMenu {
@@ -119,6 +119,10 @@ pub fn main_menu(gs: &mut State, ctx: &mut BTerm) -> MainMenuResult {
 pub fn draw_ui(ecs: &World, ctx: &mut BTerm) {
     ctx.draw_box(0, 43, 79, 6, RGB::named(WHITE), RGB::named(BLACK));
 
+    let map = ecs.fetch::<Map>();
+    let depth = format!("Depth: {}", map.depth);
+    ctx.print_color(2, 43, RGB::named(YELLOW), RGB::named(BLACK), &depth);
+
     let combat_stats = ecs.read_storage::<CombatStats>();
     let players = ecs.read_storage::<Player>();
     for (_player, stats) in (&players, &combat_stats).join() {
@@ -156,7 +160,9 @@ pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
     let ttfg = RGB::named(WHITE);
     let ttbg = RGB::named(BLUE);
     let map = ecs.fetch::<Map>();
+    let entities = ecs.entities();
     let names = ecs.read_storage::<Name>();
+    let given_names = ecs.read_storage::<GivenName>();
     let positions = ecs.read_storage::<Position>();
 
     let mouse_pos = ctx.mouse_pos();
@@ -165,11 +171,19 @@ pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
     }
 
     let mut tooltip: Vec<String> = Vec::new();
-    for (name, position) in (&names, &positions).join() {
+    for (entity, name, position) in (&entities, &names, &positions).join() {
         let idx = map.xy_idx(position.x, position.y);
-        if position.x == mouse_pos.0 && position.y == mouse_pos.1 && map.visible_tiles[idx] {
-            tooltip.push(name.name.to_string());
+        if position.x == mouse_pos.0 && position.y == mouse_pos.1 && (map.visible_tiles[idx] || map.fog_off) {
+            if let Some(gn) = given_names.get(entity) {
+                tooltip.push(format!("{}, {}", name.name, gn.name));
+            } else {
+                tooltip.push(name.name.to_string());
+            }
         }
+    }
+
+    if map.tiles[map.xy_idx(mouse_pos.0, mouse_pos.1)] == TileType::DownStairs {
+        tooltip.push("Staircase".into());
     }
 
     if !tooltip.is_empty() {

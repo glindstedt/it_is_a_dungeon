@@ -3,12 +3,7 @@ use std::cmp::{max, min};
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::{
-    components::{CombatStats, Item, Player, Position, Viewshed, WantsToMelee, WantsToPickupItem},
-    gamelog::GameLog,
-    map::Map,
-    RunState, State,
-};
+use crate::{RunState, State, components::{CombatStats, Item, Monster, Player, Position, Viewshed, WantsToMelee, WantsToPickupItem}, gamelog::GameLog, map::Map};
 
 fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let mut positions = ecs.write_storage::<Position>();
@@ -93,39 +88,80 @@ fn get_item(ecs: &mut World) {
     }
 }
 
+fn skip_turn(ecs: &mut World) -> RunState {
+    let player_entity = ecs.fetch::<Entity>();
+    let viewshed_components = ecs.read_storage::<Viewshed>();
+    let monsters = ecs.read_storage::<Monster>();
+
+    let worldmap_resource = ecs.fetch::<Map>();
+
+    let mut can_heal = true;
+    let viewshed = viewshed_components.get(*player_entity).unwrap();
+    for tile in viewshed.visible_tiles.iter() {
+        let idx = worldmap_resource.xy_idx(tile.x, tile.y);
+        for entity_id in worldmap_resource.tile_content[idx].iter() {
+            let mob = monsters.get(*entity_id);
+            match mob {
+                None => {}
+                Some(_) => { can_heal = false; }
+            }
+        }
+    }
+
+    if can_heal {
+        let mut health_components = ecs.write_storage::<CombatStats>();
+        let player_hp = health_components.get_mut(*player_entity).unwrap();
+        player_hp.hp = i32::min(player_hp.hp + 1, player_hp.max_hp);
+    }
+
+    RunState::PlayerTurn
+}
+
 pub fn player_input(gs: &mut State, ctx: &mut BTerm) -> RunState {
+    use VirtualKeyCode::*;
+
     match ctx.key {
         None => return RunState::AwaitingInput,
         Some(key) => match key {
             // Cardinals
-            VirtualKeyCode::Left | VirtualKeyCode::Numpad4 | VirtualKeyCode::H => {
+            Left | Numpad4 | H => {
                 try_move_player(-1, 0, &mut gs.ecs)
             }
-            VirtualKeyCode::Right | VirtualKeyCode::Numpad6 | VirtualKeyCode::L => {
+            Right | Numpad6 | L => {
                 try_move_player(1, 0, &mut gs.ecs)
             }
-            VirtualKeyCode::Up | VirtualKeyCode::Numpad8 | VirtualKeyCode::K => {
+            Up | Numpad8 | K => {
                 try_move_player(0, -1, &mut gs.ecs)
             }
-            VirtualKeyCode::Down | VirtualKeyCode::Numpad2 | VirtualKeyCode::J => {
+            Down | Numpad2 | J => {
                 try_move_player(0, 1, &mut gs.ecs)
             }
 
             // Diagonals
-            VirtualKeyCode::Numpad9 | VirtualKeyCode::U => try_move_player(1, -1, &mut gs.ecs),
-            VirtualKeyCode::Numpad7 | VirtualKeyCode::Y => try_move_player(-1, -1, &mut gs.ecs),
-            VirtualKeyCode::Numpad3 | VirtualKeyCode::N => try_move_player(1, 1, &mut gs.ecs),
-            VirtualKeyCode::Numpad1 | VirtualKeyCode::B => try_move_player(-1, 1, &mut gs.ecs),
+            Numpad9 | U => try_move_player(1, -1, &mut gs.ecs),
+            Numpad7 | Y => try_move_player(-1, -1, &mut gs.ecs),
+            Numpad3 | N => try_move_player(1, 1, &mut gs.ecs),
+            Numpad1 | B => try_move_player(-1, 1, &mut gs.ecs),
 
+            // Skip turn
+            Space | Numpad5 => {
+                return skip_turn(&mut gs.ecs);
+            }
             // Pickup
-            VirtualKeyCode::G => get_item(&mut gs.ecs),
+            G => get_item(&mut gs.ecs),
             // Show Inventory
-            VirtualKeyCode::I => return RunState::ShowInventory,
+            I => return RunState::ShowInventory,
             // Drop item
-            VirtualKeyCode::D => return RunState::ShowDropItem,
+            D => return RunState::ShowDropItem,
+            // Level changes
+            Period => {
+                if crate::map::try_next_level(&mut gs.ecs) {
+                    return RunState::NextLevel;
+                }
+            }
 
-            VirtualKeyCode::Grave => return RunState::Console,
-            VirtualKeyCode::Escape => return RunState::SaveGame,
+            Grave => return RunState::Console,
+            Escape => return RunState::SaveGame,
             _ => return RunState::AwaitingInput,
         },
     }

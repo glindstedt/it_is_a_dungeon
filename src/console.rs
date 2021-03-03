@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 
 use bracket_lib::prelude::*;
+use specs::WorldExt;
 use thiserror::Error;
 
 use crate::{map::Map, spawner, RunState, State};
@@ -67,6 +68,8 @@ pub fn console_input(gs: &mut State, ctx: &mut BTerm) -> RunState {
     use Line::*;
     use VirtualKeyCode::*;
 
+    let mut next_state = RunState::Console;
+
     match ctx.key {
         None => {}
         Some(key) => match key {
@@ -130,7 +133,9 @@ pub fn console_input(gs: &mut State, ctx: &mut BTerm) -> RunState {
                     input
                 };
                 match execute(gs, input.as_str()) {
-                    Ok(_) => {}
+                    Ok(runstate) => {
+                        next_state = runstate;
+                    }
                     Err(e) => {
                         let mut console = gs.ecs.fetch_mut::<Console>();
                         console.history.push(Output(e.to_string()));
@@ -160,10 +165,10 @@ pub fn console_input(gs: &mut State, ctx: &mut BTerm) -> RunState {
             }
         },
     };
-    RunState::Console
+    next_state
 }
 
-fn execute(gs: &mut State, input: &str) -> Result<(), ConsoleError> {
+fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
     use Line::*;
 
     let parts: Vec<&str> = input.split(" ").collect();
@@ -178,6 +183,11 @@ fn execute(gs: &mut State, input: &str) -> Result<(), ConsoleError> {
             "fog" => {
                 let mut map = gs.ecs.fetch_mut::<Map>();
                 map.fog_off = !map.fog_off;
+            }
+            "descend" => {
+                let mut console = gs.ecs.fetch_mut::<Console>();
+                console.history.push(Output("Descending...".into()));
+                return Ok(RunState::NextLevel);
             }
             "help" => {
                 let mut console = gs.ecs.fetch_mut::<Console>();
@@ -206,13 +216,16 @@ fn execute(gs: &mut State, input: &str) -> Result<(), ConsoleError> {
                     "spawn confusion          - spawn confusion scroll".into(),
                 ));
                 console.history.push(Output(
+                    "descend                  - go down 1 level".into(),
+                ));
+                console.history.push(Output(
                     "console height <lines>   - set console height".into(),
                 ));
             }
             c => return Err(ConsoleError::UnknownCommand(c.into())),
         }
     }
-    Ok(())
+    Ok(RunState::Console)
 }
 
 fn spawn_commands(gs: &mut State, args: &[&str]) -> Result<(), ConsoleError> {

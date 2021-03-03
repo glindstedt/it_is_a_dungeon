@@ -83,6 +83,7 @@ pub fn save_game(ecs: &mut World) -> Result<(), SaveLoadError> {
             Viewshed,
             Player,
             Name,
+            GivenName,
             Monster,
             BlocksTile,
             CombatStats,
@@ -130,6 +131,7 @@ pub fn load_game(ecs: &mut World) -> Result<(), SaveLoadError> {
             Viewshed,
             Player,
             Name,
+            GivenName,
             Monster,
             BlocksTile,
             CombatStats,
@@ -172,7 +174,7 @@ pub fn load_game(ecs: &mut World) -> Result<(), SaveLoadError> {
     }
     ecs.delete_entity(deleteme.unwrap())
         .expect("Unable to delete helper");
-    
+
     Ok(())
 }
 
@@ -220,11 +222,11 @@ pub fn does_save_exist() -> bool {
                 }
                 Err(e) => {
                     console::log(format!("{:?}", e));
-                    return false
+                    return false;
                 }
             }
         } else {
-            return false
+            return false;
         }
     }
     false
@@ -290,7 +292,7 @@ pub fn finalize_serializer(ser: Serializer<BufWriter<Vec<u8>>>) -> anyhow::Resul
         local_storage
             .set_item(SAVEGAME, saved_game_json.as_str())
             .expect("Failed to set local storage item");
-        return Ok(())
+        return Ok(());
     } else {
         return Err(anyhow::anyhow!("Failed to access local storage"));
     }

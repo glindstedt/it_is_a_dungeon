@@ -40,6 +40,11 @@ pub struct Name {
     pub name: String,
 }
 
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct GivenName {
+    pub name: String,
+}
+
 #[derive(Component, Serialize, Deserialize, Debug, Clone)]
 pub struct Monster {}
 

@@ -1,14 +1,7 @@
 use bracket_lib::prelude::field_of_view;
 use specs::prelude::*;
 
-use crate::{
-    components::{
-        AreaOfEffect, CombatStats, Confusion, Consumable, InBackpack, InflictsDamage, Name,
-        Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToUseItem,
-    },
-    gamelog::GameLog,
-    map::Map,
-};
+use crate::{components::{AreaOfEffect, CombatStats, Confusion, Consumable, GivenName, InBackpack, InflictsDamage, Name, Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToUseItem}, gamelog::GameLog, map::Map};
 pub struct ItemUseSystem {}
 
 impl<'a> System<'a> for ItemUseSystem {
@@ -19,6 +12,7 @@ impl<'a> System<'a> for ItemUseSystem {
         Entities<'a>,
         WriteStorage<'a, WantsToUseItem>,
         ReadStorage<'a, Name>,
+        ReadStorage<'a, GivenName>,
         WriteStorage<'a, CombatStats>,
         ReadStorage<'a, Consumable>,
         ReadStorage<'a, ProvidesHealing>,
@@ -36,6 +30,7 @@ impl<'a> System<'a> for ItemUseSystem {
             entities,
             mut wants_drink,
             names,
+            given_names,
             mut combat_stats,
             consumables,
             healing,
@@ -107,10 +102,11 @@ impl<'a> System<'a> for ItemUseSystem {
                         SufferDamage::new_damage(&mut suffer_damage, *mob, damage.damage);
                         if entity == *player_entity {
                             let mob_name = names.get(*mob).unwrap();
+                            let mob_given_name = given_names.get(*mob).unwrap();
                             let item_name = names.get(useitem.item).unwrap();
                             gamelog.entries.push(format!(
-                                "You use {} on {}, inflicting {} damage.",
-                                item_name.name, mob_name.name, damage.damage
+                                "You use {} on {} the {}, inflicting {} damage.",
+                                item_name.name, mob_given_name.name, mob_name.name, damage.damage
                             ))
                         }
 
@@ -130,10 +126,11 @@ impl<'a> System<'a> for ItemUseSystem {
                             add_confusion.push((*mob, confusion.turns));
                             if entity == *player_entity {
                                 let mob_name = names.get(*mob).unwrap();
+                                let mob_given_name = given_names.get(*mob).unwrap();
                                 let item_name = names.get(useitem.item).unwrap();
                                 gamelog.entries.push(format!(
-                                    "You use {} on {}, confusing them.",
-                                    item_name.name, mob_name.name
+                                    "You use {} on {} the {}, confusing them.",
+                                    item_name.name, mob_given_name.name, mob_name.name
                                 ));
                             }
                         }

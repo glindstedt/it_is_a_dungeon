@@ -1,6 +1,11 @@
-use audio::{SoundResource};
+use audio::SoundResource;
 use bracket_lib::prelude::*;
-use kira::{Frame, instance::InstanceSettings, manager::{AudioManager, AudioManagerSettings}, sound::SoundSettings};
+use kira::{
+    instance::InstanceSettings,
+    manager::{AudioManager, AudioManagerSettings},
+    sound::SoundSettings,
+    Frame,
+};
 use specs::{
     prelude::*,
     saveload::{SimpleMarker, SimpleMarkerAllocator},
@@ -13,6 +18,7 @@ mod gamelog;
 mod gui;
 mod map;
 mod player;
+mod random_table;
 mod rect;
 mod spawner;
 mod systems;
@@ -44,6 +50,7 @@ pub enum RunState {
     },
     Loading,
     SaveGame,
+    NextLevel,
 }
 
 pub struct State {
@@ -77,6 +84,90 @@ impl State {
         drop_items.run_now(&self.ecs);
 
         self.ecs.maintain();
+    }
+
+    fn entities_to_remove_on_level_change(&mut self) -> Vec<Entity> {
+        let entities = self.ecs.entities();
+        let player = self.ecs.read_storage::<Player>();
+        let backpack = self.ecs.read_storage::<InBackpack>();
+        let player_entity = self.ecs.fetch::<Entity>();
+
+        let mut to_delete: Vec<Entity> = Vec::new();
+        for entity in entities.join() {
+            let mut should_delete = true;
+
+            // Don't delete the player
+            let p = player.get(entity);
+            if let Some(_p) = p {
+                should_delete = false;
+            }
+
+            // Don't delete the player's equipment
+            let bp = backpack.get(entity);
+            if let Some(bp) = bp {
+                if bp.owner == *player_entity {
+                    should_delete = false;
+                }
+            }
+
+            if should_delete {
+                to_delete.push(entity);
+            }
+        }
+
+        to_delete
+    }
+
+    fn goto_next_level(&mut self) {
+        // Delete entities that aren't the player or his/her equipment
+        let to_delete = self.entities_to_remove_on_level_change();
+        for target in to_delete {
+            self.ecs
+                .delete_entity(target)
+                .expect("Unable to delete entity");
+        }
+
+        // Build a new map and place the player
+        let map = {
+            let mut map = self.ecs.write_resource::<Map>();
+            *map = Map::new_map_rooms_and_corridors(map.depth + 1);
+            map.clone()
+        };
+
+        // Spawn bad guys
+        for room in map.rooms.iter().skip(1) {
+            spawner::spawn_room(&mut self.ecs, room, map.depth);
+        }
+
+        // Place the player and update resources
+        let (player_x, player_y) = map.rooms[0].center();
+        let mut player_position = self.ecs.write_resource::<Point>();
+        *player_position = Point::new(player_x, player_y);
+        let mut position_components = self.ecs.write_storage::<Position>();
+        let player_entity = self.ecs.fetch::<Entity>();
+        let player_pos_comp = position_components.get_mut(*player_entity);
+        if let Some(player_pos_comp) = player_pos_comp {
+            player_pos_comp.x = player_x;
+            player_pos_comp.y = player_y;
+        }
+
+        // Mark the player's visibility as dirty
+        let mut viewshed_components = self.ecs.write_storage::<Viewshed>();
+        let vs = viewshed_components.get_mut(*player_entity);
+        if let Some(vs) = vs {
+            vs.dirty = true;
+        }
+
+        // Notify the player and give them some health
+        let mut gamelog = self.ecs.fetch_mut::<gamelog::GameLog>();
+        gamelog
+            .entries
+            .push("You descend to the next level, and take a moment to heal.".to_string());
+        let mut player_health_store = self.ecs.write_storage::<CombatStats>();
+        let player_health = player_health_store.get_mut(*player_entity);
+        if let Some(player_health) = player_health {
+            player_health.hp = i32::max(player_health.hp, player_health.max_hp / 2);
+        }
     }
 }
 
@@ -120,11 +211,6 @@ impl GameState for State {
             // Initial
             RunState::PreRun => {
                 self.run_systems();
-
-                // Start audio loop
-                let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
-                // TODO handle error
-                sound_resource.play_sound("assets/audio/gr1.ogg", InstanceSettings::default().loop_start(0f64)).unwrap();
 
                 new_runstate = RunState::AwaitingInput;
             }
@@ -260,9 +346,23 @@ impl GameState for State {
                 let mut audio_manager = self.ecs.fetch_mut::<AudioManager>();
                 if !sound_resource.finished_loading() {
                     bracket_lib::terminal::console::log("Handling load queue...");
-                    sound_resource.handle_load_queue(&mut audio_manager);
+                    // TODO handle error
+                    sound_resource
+                        .handle_load_queue(&mut audio_manager)
+                        .unwrap();
                 } else {
                     bracket_lib::terminal::console::log("Loaded!");
+
+                    // Start audio loop
+                    // let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+                    // TODO handle error
+                    sound_resource
+                        .play_sound(
+                            "assets/audio/gr1.ogg",
+                            InstanceSettings::default().loop_start(0f64),
+                        )
+                        .unwrap();
+
                     new_runstate = RunState::PreRun
                 }
             }
@@ -272,6 +372,10 @@ impl GameState for State {
                     Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                 }
                 new_runstate = RunState::PostRun;
+            }
+            RunState::NextLevel => {
+                self.goto_next_level();
+                new_runstate = RunState::PreRun;
             }
         }
 
@@ -305,9 +409,9 @@ fn new_game(ecs: &mut World) {
     }
 
     // Set up new stuff
-    let map = Map::new_map_rooms_and_corridors();
+    let map = Map::new_map_rooms_and_corridors(1);
     for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(ecs, room);
+        spawner::spawn_room(ecs, room, map.depth);
     }
 
     let (player_x, player_y) = map.rooms[0].center();
@@ -318,13 +422,13 @@ fn new_game(ecs: &mut World) {
     ecs.insert(player_entity);
     ecs.insert(map);
     ecs.insert(gamelog::GameLog {
-        entries: vec!["Welcome to Roguelike".to_string()],
+        entries: vec!["Welcome to the deep".to_string()],
     });
 }
 
 fn main() -> BError {
     let mut context = BTermBuilder::simple80x50()
-        .with_title("Roguelike Tutorial")
+        .with_title("It is a game")
         .build()?;
     // context.with_post_scanlines(true);
 
@@ -339,6 +443,7 @@ fn main() -> BError {
     state.ecs.register::<Player>();
     state.ecs.register::<Viewshed>();
     state.ecs.register::<Name>();
+    state.ecs.register::<GivenName>();
     state.ecs.register::<Monster>();
     state.ecs.register::<BlocksTile>();
     state.ecs.register::<CombatStats>();
@@ -367,8 +472,8 @@ fn main() -> BError {
     });
     state.ecs.insert(console::Console::new());
 
-    let audio_manager = AudioManager::new(AudioManagerSettings::default())
-        .expect("Unable to initialize audio");
+    let audio_manager =
+        AudioManager::new(AudioManagerSettings::default()).expect("Unable to initialize audio");
     state.ecs.insert(audio_manager);
     state.ecs.insert(SoundResource::default());
 
