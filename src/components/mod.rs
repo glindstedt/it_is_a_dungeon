@@ -7,8 +7,10 @@ use specs::{
     Component, ConvertSaveload,
 };
 
+mod helpers;
 mod intent;
 
+pub use helpers::*;
 pub use intent::*;
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]

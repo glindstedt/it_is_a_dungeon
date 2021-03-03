@@ -1,6 +1,6 @@
 use specs::prelude::*;
 
-use crate::components::{CombatStats, GivenName, Name, Player, SufferDamage};
+use crate::components::{CombatStats, GivenName, Name, Player, SufferDamage, named};
 use crate::gamelog::GameLog;
 
 pub struct DamageSystem {}
@@ -37,15 +37,8 @@ pub fn delete_the_dead(ecs: &mut World) {
                 let player = players.get(entity);
                 match player {
                     None => {
-                        let victim_given_name = given_names.get(entity);
-                        let victim_name = names.get(entity);
-
-                        if victim_name.is_some() && victim_given_name.is_some() {
-                            log.entries.push(format!("{} the {} is dead", &victim_given_name.unwrap().name, &victim_name.unwrap().name));
-                        }
-                        if let Some(victim_name) = victim_name {
-                            log.entries.push(format!("{} is dead", &victim_name.name));
-                        }
+                        let title = named(names.get(entity), given_names.get(entity));
+                        log.entries.push(format!("{} is dead", title));
                         dead.push(entity)
                     }
                     Some(_) => log.entries.push("You are dead :(".to_string()),
