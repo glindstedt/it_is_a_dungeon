@@ -1,6 +1,8 @@
+use std::borrow::Borrow;
+
 use specs::prelude::*;
 
-use crate::gamelog::GameLog;
+use crate::{components::Position, gamelog::GameLog, map::Map};
 use crate::{
     components::{named, CombatStats, GivenName, Name, Player, SufferDamage},
     RunState,
@@ -12,13 +14,21 @@ impl<'a> System<'a> for DamageSystem {
     type SystemData = (
         WriteStorage<'a, CombatStats>,
         WriteStorage<'a, SufferDamage>,
+        ReadStorage<'a, Position>,
+        WriteExpect<'a, Map>,
+        Entities<'a>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut stats, mut damage) = data;
+        let (mut stats, mut damage, positions, mut map, entities) = data;
 
-        for (mut stats, damage) in (&mut stats, &damage).join() {
+        for (entity, mut stats, damage) in (&entities, &mut stats, &damage).join() {
             stats.hp -= damage.amount.iter().sum::<i32>();
+            let pos = positions.get(entity);
+            if let Some(pos) = pos {
+                let idx = map.xy_idx(pos.x, pos.y);
+                map.bloodstains.insert(idx);
+            }
         }
 
         damage.clear();

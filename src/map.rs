@@ -1,4 +1,7 @@
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    collections::HashSet,
+};
 
 use bracket_lib::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -27,6 +30,7 @@ pub struct Map {
     pub visible_tiles: Vec<bool>,
     pub blocked: Vec<bool>,
     pub depth: i32,
+    pub bloodstains: HashSet<usize>,
 
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
@@ -264,6 +268,7 @@ pub fn draw_map(ecs: &World, ctx: &mut BTerm) {
         if map.fog_off || map.revealed_tiles[idx] {
             let glyph;
             let mut fg;
+            let mut bg = RGB::from_f32(0., 0., 0.);
             match tile {
                 TileType::Wall => {
                     glyph = wall_glyph(&*map, x, y);
@@ -280,8 +285,10 @@ pub fn draw_map(ecs: &World, ctx: &mut BTerm) {
             }
             if !map.visible_tiles[idx] {
                 fg = fg.to_greyscale()
+            } else if map.bloodstains.contains(&idx) {
+                bg = RGB::from_f32(0.75, 0., 0.);
             }
-            ctx.set(x, y, fg, RGB::from_f32(0., 0., 0.), glyph);
+            ctx.set(x, y, fg, bg, glyph);
         }
 
         // Move the coordinates
