@@ -143,6 +143,11 @@ pub struct DefenceBonus {
 }
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct ParticleLifetime {
+    pub lifetime_ms: f32,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct SerializationHelper {
     pub map: crate::map::Map,
 }

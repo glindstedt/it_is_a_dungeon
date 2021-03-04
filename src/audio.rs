@@ -53,6 +53,9 @@ impl SoundResource {
     }
 
     pub fn load_audio(&mut self, url: &'static str) {
+        // Was loaded previously, ignore
+        if self.sounds.get(url).is_some() { return; }
+
         let sound_queue = self.tx.clone();
         self.loading.insert(url.into());
         load_audio_data(url, SoundSettings::default(), move |s| {

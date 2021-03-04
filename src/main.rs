@@ -89,6 +89,9 @@ impl State {
         let mut item_remove = ItemRemoveSystem {};
         item_remove.run_now(&self.ecs);
 
+        let mut particles = ParticleSpawnSystem {};
+        particles.run_now(&self.ecs);
+
         self.ecs.maintain();
     }
 
@@ -271,8 +274,7 @@ impl State {
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         ctx.cls();
-
-        {}
+        cull_dead_particles(&mut self.ecs, ctx);
 
         let mut new_runstate = {
             let runstate = self.ecs.fetch::<RunState>();
@@ -452,11 +454,6 @@ impl GameState for State {
                         gui::MainMenuSelection::NewGame => {
                             self.new_game();
 
-                            // Load audio
-                            let url = "assets/audio/gr1.ogg";
-                            let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
-                            sound_resource.load_audio(url);
-
                             new_runstate = RunState::Loading
                         }
                         gui::MainMenuSelection::LoadGame => {
@@ -476,6 +473,11 @@ impl GameState for State {
             }
             RunState::Loading => {
                 let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+
+                // Load audio from assets if not done previously
+                let url = "assets/audio/gr1.ogg";
+                sound_resource.load_audio(url);
+
                 let mut audio_manager = self.ecs.fetch_mut::<AudioManager>();
                 if !sound_resource.finished_loading() {
                     bracket_lib::terminal::console::log("Handling load queue...");
@@ -560,6 +562,7 @@ fn main() -> BError {
     state.ecs.register::<Equipped>();
     state.ecs.register::<MeleePowerBonus>();
     state.ecs.register::<DefenceBonus>();
+    state.ecs.register::<ParticleLifetime>();
     state.ecs.register::<SerializationHelper>();
 
     // Resources
@@ -576,6 +579,7 @@ fn main() -> BError {
         AudioManager::new(AudioManagerSettings::default()).expect("Unable to initialize audio");
     state.ecs.insert(audio_manager);
     state.ecs.insert(SoundResource::default());
+    state.ecs.insert(ParticleBuilder::default());
 
     state.new_game();
 

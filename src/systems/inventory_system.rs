@@ -1,4 +1,4 @@
-use bracket_lib::prelude::field_of_view;
+use bracket_lib::prelude::*;
 use specs::prelude::*;
 
 use crate::{
@@ -10,6 +10,8 @@ use crate::{
     gamelog::GameLog,
     map::Map,
 };
+
+use super::ParticleBuilder;
 pub struct ItemUseSystem {}
 
 impl<'a> System<'a> for ItemUseSystem {
@@ -31,6 +33,8 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadStorage<'a, Equipable>,
         WriteStorage<'a, Equipped>,
         WriteStorage<'a, InBackpack>,
+        WriteExpect<'a, ParticleBuilder>,
+        ReadStorage<'a, Position>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -52,6 +56,8 @@ impl<'a> System<'a> for ItemUseSystem {
             equipable,
             mut equipped,
             mut backpack,
+            mut particle_builder,
+            positions
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_drink).join() {
@@ -79,6 +85,7 @@ impl<'a> System<'a> for ItemUseSystem {
                                 for mob in map.tile_content[idx].iter() {
                                     targets.push(*mob);
                                 }
+                                particle_builder.request(tile_idx.x, tile_idx.y, RGB::named(ORANGE), RGB::named(BLACK), to_cp437('░'), 200.0)
                             }
                         }
                     }
@@ -98,6 +105,9 @@ impl<'a> System<'a> for ItemUseSystem {
                                 healer.heal_amount
                             ));
                         }
+                        if let Some(pos) = positions.get(*target) {
+                            particle_builder.request(pos.x, pos.y, RGB::named(GREEN), RGB::named(BLACK), to_cp437('♥'), 200.0)
+                        }
                     }
                 }
             }
@@ -112,7 +122,10 @@ impl<'a> System<'a> for ItemUseSystem {
                         gamelog.entries.push(format!(
                             "You use {} on {}, inflicting {} damage.",
                             item_name.name, title, damage.damage
-                        ))
+                        ));
+                        if let Some(pos) = positions.get(*mob) {
+                            particle_builder.request(pos.x, pos.y, RGB::named(RED), RGB::named(BLACK), to_cp437('‼'), 200.0)
+                        }
                     }
                 }
             }
@@ -171,6 +184,9 @@ impl<'a> System<'a> for ItemUseSystem {
                                 "You use {} on {}, confusing them.",
                                 item_name.name, title
                             ));
+                        }
+                        if let Some(pos) = positions.get(*mob) {
+                            particle_builder.request(pos.x, pos.y, RGB::named(MAGENTA), RGB::named(BLACK), to_cp437('?'), 200.0)
                         }
                     }
                 }

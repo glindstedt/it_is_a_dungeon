@@ -1,10 +1,10 @@
+use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::components::{
-    named, CombatStats, DefenceBonus, Equipped, GivenName, MeleePowerBonus, Name, SufferDamage,
-    WantsToMelee,
-};
+use crate::components::{CombatStats, DefenceBonus, Equipped, GivenName, MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee, named};
 use crate::gamelog::GameLog;
+
+use super::ParticleBuilder;
 
 pub struct MeleeCombatSystem {}
 
@@ -20,6 +20,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
         ReadStorage<'a, Equipped>,
         ReadStorage<'a, MeleePowerBonus>,
         ReadStorage<'a, DefenceBonus>,
+        WriteExpect<'a, ParticleBuilder>,
+        ReadStorage<'a, Position>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -34,6 +36,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
             equipped,
             melee_power_bonuses,
             defence_bonuses,
+            mut particle_builder,
+            positions
         ) = data;
 
         for (entity, wants_melee, name, stats) in
@@ -65,6 +69,10 @@ impl<'a> System<'a> for MeleeCombatSystem {
                             defensive_bonus += defence_bonus.defence
                         }
                     }
+                    if let Some(pos) = positions.get(wants_melee.target) {
+                        particle_builder.request(pos.x, pos.y, RGB::named(ORANGE), RGB::named(BLACK), to_cp437('‼'), 200.0);
+                    }
+
                     let damage = i32::max(
                         0,
                         (stats.power + offensive_bonus) - (target_stats.defence + defensive_bonus),
