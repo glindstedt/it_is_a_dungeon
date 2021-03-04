@@ -1,7 +1,10 @@
 use specs::prelude::*;
 
-use crate::{RunState, components::{CombatStats, GivenName, Name, Player, SufferDamage, named}};
 use crate::gamelog::GameLog;
+use crate::{
+    components::{named, CombatStats, GivenName, Name, Player, SufferDamage},
+    RunState,
+};
 
 pub struct DamageSystem {}
 

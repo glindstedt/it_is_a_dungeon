@@ -1,12 +1,15 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::{components::{Equipped, GivenName}, map::{Map, TileType}};
 use crate::{components::InBackpack, console};
 use crate::{components::Viewshed, gamelog::GameLog};
 use crate::{
     components::{CombatStats, Name, Player, Position},
     RunState, State,
+};
+use crate::{
+    components::{Equipped, GivenName},
+    map::{Map, TileType},
 };
 
 #[derive(PartialEq, Copy, Clone)]
@@ -26,12 +29,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut BTerm) -> MainMenuResult {
     let save_exists = crate::systems::does_save_exist();
     let runstate = gs.ecs.fetch::<RunState>();
 
-    ctx.print_color_centered(
-        15,
-        RGB::named(YELLOW),
-        RGB::named(BLACK),
-        "It is a game",
-    );
+    ctx.print_color_centered(15, RGB::named(YELLOW), RGB::named(BLACK), "It is a game");
 
     if let RunState::MainMenu {
         menu_selection: selection,
@@ -173,7 +171,10 @@ pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
     let mut tooltip: Vec<String> = Vec::new();
     for (entity, name, position) in (&entities, &names, &positions).join() {
         let idx = map.xy_idx(position.x, position.y);
-        if position.x == mouse_pos.0 && position.y == mouse_pos.1 && (map.visible_tiles[idx] || map.fog_off) {
+        if position.x == mouse_pos.0
+            && position.y == mouse_pos.1
+            && (map.visible_tiles[idx] || map.fog_off)
+        {
             if let Some(gn) = given_names.get(entity) {
                 tooltip.push(format!("{}, {}", name.name, gn.name));
             } else {
@@ -203,13 +204,7 @@ pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
                 ctx.print_color(left_x, y, ttfg, ttbg, s);
                 let padding = (width - s.len() as i32) - 1;
                 for i in 0..padding {
-                    ctx.print_color(
-                        arrow_pos.x - i,
-                        y,
-                        ttfg,
-                        ttbg,
-                        &" ".to_string(),
-                    );
+                    ctx.print_color(arrow_pos.x - i, y, ttfg, ttbg, &" ".to_string());
                 }
                 y += 1;
             }
@@ -228,23 +223,11 @@ pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
                 ctx.print_color(left_x + 1, y, ttfg, ttbg, s);
                 let padding = (width - s.len() as i32) - 1;
                 for i in 0..padding {
-                    ctx.print_color(
-                        arrow_pos.x + 1 + i,
-                        y,
-                        ttfg,
-                        ttbg,
-                        &" ".to_string(),
-                    );
+                    ctx.print_color(arrow_pos.x + 1 + i, y, ttfg, ttbg, &" ".to_string());
                 }
                 y += 1;
             }
-            ctx.print_color(
-                arrow_pos.x,
-                arrow_pos.y,
-                ttfg,
-                ttbg,
-                &"<-".to_string(),
-            );
+            ctx.print_color(arrow_pos.x, arrow_pos.y, ttfg, ttbg, &"<-".to_string());
         }
     }
 }
@@ -462,25 +445,55 @@ pub fn drop_item_menu(gs: &mut State, ctx: &mut BTerm) -> (ItemMenuResult, Optio
     }
 }
 
-pub fn remove_item_menu(gs : &mut State, ctx : &mut BTerm) -> (ItemMenuResult, Option<Entity>) {
+pub fn remove_item_menu(gs: &mut State, ctx: &mut BTerm) -> (ItemMenuResult, Option<Entity>) {
     let player_entity = gs.ecs.fetch::<Entity>();
     let names = gs.ecs.read_storage::<Name>();
     let backpack = gs.ecs.read_storage::<Equipped>();
     let entities = gs.ecs.entities();
 
-    let inventory = (&backpack, &names).join().filter(|item| item.0.owner == *player_entity );
+    let inventory = (&backpack, &names)
+        .join()
+        .filter(|item| item.0.owner == *player_entity);
     let count = inventory.count();
 
     let mut y = (25 - (count / 2)) as i32;
-    ctx.draw_box(15, y-2, 31, (count+3) as i32, RGB::named(WHITE), RGB::named(BLACK));
-    ctx.print_color(18, y-2, RGB::named(YELLOW), RGB::named(BLACK), "Remove Which Item?");
-    ctx.print_color(18, y+count as i32+1, RGB::named(YELLOW), RGB::named(BLACK), "ESCAPE to cancel");
+    ctx.draw_box(
+        15,
+        y - 2,
+        31,
+        (count + 3) as i32,
+        RGB::named(WHITE),
+        RGB::named(BLACK),
+    );
+    ctx.print_color(
+        18,
+        y - 2,
+        RGB::named(YELLOW),
+        RGB::named(BLACK),
+        "Remove Which Item?",
+    );
+    ctx.print_color(
+        18,
+        y + count as i32 + 1,
+        RGB::named(YELLOW),
+        RGB::named(BLACK),
+        "ESCAPE to cancel",
+    );
 
-    let mut equippable : Vec<Entity> = Vec::new();
+    let mut equippable: Vec<Entity> = Vec::new();
     let mut j = 0;
-    for (entity, _pack, name) in (&entities, &backpack, &names).join().filter(|item| item.1.owner == *player_entity ) {
+    for (entity, _pack, name) in (&entities, &backpack, &names)
+        .join()
+        .filter(|item| item.1.owner == *player_entity)
+    {
         ctx.set(17, y, RGB::named(WHITE), RGB::named(BLACK), to_cp437('('));
-        ctx.set(18, y, RGB::named(YELLOW), RGB::named(BLACK), 97+j as FontCharType);
+        ctx.set(
+            18,
+            y,
+            RGB::named(YELLOW),
+            RGB::named(BLACK),
+            97 + j as FontCharType,
+        );
         ctx.set(19, y, RGB::named(WHITE), RGB::named(BLACK), to_cp437(')'));
 
         ctx.print(21, y, &name.name.to_string());
@@ -491,18 +504,19 @@ pub fn remove_item_menu(gs : &mut State, ctx : &mut BTerm) -> (ItemMenuResult, O
 
     match ctx.key {
         None => (ItemMenuResult::NoResponse, None),
-        Some(key) => {
-            match key {
-                VirtualKeyCode::Escape => { (ItemMenuResult::Cancel, None) }
-                _ => { 
-                    let selection = letter_to_option(key);
-                    if selection > -1 && selection < count as i32 {
-                        return (ItemMenuResult::Selected, Some(equippable[selection as usize]));
-                    }  
-                    (ItemMenuResult::NoResponse, None)
+        Some(key) => match key {
+            VirtualKeyCode::Escape => (ItemMenuResult::Cancel, None),
+            _ => {
+                let selection = letter_to_option(key);
+                if selection > -1 && selection < count as i32 {
+                    return (
+                        ItemMenuResult::Selected,
+                        Some(equippable[selection as usize]),
+                    );
                 }
+                (ItemMenuResult::NoResponse, None)
             }
-        }
+        },
     }
 }
 
@@ -558,17 +572,40 @@ pub fn ranged_target(
 }
 
 #[derive(PartialEq, Copy, Clone)]
-pub enum GameOverResult { NoSelection, QuitToMenu }
+pub enum GameOverResult {
+    NoSelection,
+    QuitToMenu,
+}
 
-pub fn game_over(ctx : &mut BTerm) -> GameOverResult {
-    ctx.print_color_centered(15, RGB::named(YELLOW), RGB::named(BLACK), "Your journey has ended!");
-    ctx.print_color_centered(17, RGB::named(WHITE), RGB::named(BLACK), "One day, we'll tell you all about how you did.");
-    ctx.print_color_centered(18, RGB::named(WHITE), RGB::named(BLACK), "That day, sadly, is not in this chapter..");
+pub fn game_over(ctx: &mut BTerm) -> GameOverResult {
+    ctx.print_color_centered(
+        15,
+        RGB::named(YELLOW),
+        RGB::named(BLACK),
+        "Your journey has ended!",
+    );
+    ctx.print_color_centered(
+        17,
+        RGB::named(WHITE),
+        RGB::named(BLACK),
+        "One day, we'll tell you all about how you did.",
+    );
+    ctx.print_color_centered(
+        18,
+        RGB::named(WHITE),
+        RGB::named(BLACK),
+        "That day, sadly, is not in this chapter..",
+    );
 
-    ctx.print_color_centered(20, RGB::named(MAGENTA), RGB::named(BLACK), "Press any key to return to the menu.");
+    ctx.print_color_centered(
+        20,
+        RGB::named(MAGENTA),
+        RGB::named(BLACK),
+        "Press any key to return to the menu.",
+    );
 
     match ctx.key {
         None => GameOverResult::NoSelection,
-        Some(_) => GameOverResult::QuitToMenu
+        Some(_) => GameOverResult::QuitToMenu,
     }
 }

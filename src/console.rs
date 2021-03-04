@@ -215,21 +215,21 @@ fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
                 console.history.push(Output(
                     "spawn confusion          - spawn confusion scroll".into(),
                 ));
-                console.history.push(Output(
-                    "spawn dagger             - spawn dagger".into(),
-                ));
-                console.history.push(Output(
-                    "spawn shield             - spawn shield".into(),
-                ));
-                console.history.push(Output(
-                    "spawn longsword          - spawn longsword".into(),
-                ));
+                console
+                    .history
+                    .push(Output("spawn dagger             - spawn dagger".into()));
+                console
+                    .history
+                    .push(Output("spawn shield             - spawn shield".into()));
+                console
+                    .history
+                    .push(Output("spawn longsword          - spawn longsword".into()));
                 console.history.push(Output(
                     "spawn towershield        - spawn towershield".into(),
                 ));
-                console.history.push(Output(
-                    "descend                  - go down 1 level".into(),
-                ));
+                console
+                    .history
+                    .push(Output("descend                  - go down 1 level".into()));
                 console.history.push(Output(
                     "console height <lines>   - set console height".into(),
                 ));

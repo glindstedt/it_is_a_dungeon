@@ -1,6 +1,9 @@
 use specs::prelude::*;
 
-use crate::components::{CombatStats, DefenceBonus, Equipped, GivenName, MeleePowerBonus, Name, SufferDamage, WantsToMelee, named};
+use crate::components::{
+    named, CombatStats, DefenceBonus, Equipped, GivenName, MeleePowerBonus, Name, SufferDamage,
+    WantsToMelee,
+};
 use crate::gamelog::GameLog;
 
 pub struct MeleeCombatSystem {}
@@ -40,7 +43,9 @@ impl<'a> System<'a> for MeleeCombatSystem {
 
             if stats.hp > 0 {
                 let mut offensive_bonus = 0;
-                for (_, power_bonus, equipped_by) in (&entities, &melee_power_bonuses, &equipped).join() {
+                for (_, power_bonus, equipped_by) in
+                    (&entities, &melee_power_bonuses, &equipped).join()
+                {
                     if equipped_by.owner == entity {
                         offensive_bonus += power_bonus.power
                     }
@@ -53,12 +58,17 @@ impl<'a> System<'a> for MeleeCombatSystem {
                         given_names.get(wants_melee.target),
                     );
                     let mut defensive_bonus = 0;
-                    for (_, defence_bonus, equipped_by) in (&entities, &defence_bonuses, &equipped).join() {
+                    for (_, defence_bonus, equipped_by) in
+                        (&entities, &defence_bonuses, &equipped).join()
+                    {
                         if equipped_by.owner == wants_melee.target {
                             defensive_bonus += defence_bonus.defence
                         }
                     }
-                    let damage = i32::max(0, (stats.power + offensive_bonus) - (target_stats.defence + defensive_bonus));
+                    let damage = i32::max(
+                        0,
+                        (stats.power + offensive_bonus) - (target_stats.defence + defensive_bonus),
+                    );
                     if damage == 0 {
                         log.entries.push(format!(
                             "{} is unable to hurt {}",
@@ -67,7 +77,13 @@ impl<'a> System<'a> for MeleeCombatSystem {
                     } else {
                         log.entries.push(format!(
                             "{} hits {}, for {} hp. ({}(+{})-{}(+{})",
-                            &dealer_title, &target_title, damage, stats.power, offensive_bonus, target_stats.defence, defensive_bonus
+                            &dealer_title,
+                            &target_title,
+                            damage,
+                            stats.power,
+                            offensive_bonus,
+                            target_stats.defence,
+                            defensive_bonus
                         ));
                         SufferDamage::new_damage(&mut inflict_damage, wants_melee.target, damage);
                     }

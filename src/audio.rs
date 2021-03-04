@@ -1,6 +1,10 @@
 use bracket_lib::prelude::console;
 use flume::{Receiver, Sender};
-use kira::{instance::{InstanceSettings, StopInstanceSettings}, manager::{AudioManager, error::AddSoundError}, sound::{Sound, SoundSettings, handle::SoundHandle}};
+use kira::{
+    instance::{InstanceSettings, StopInstanceSettings},
+    manager::{error::AddSoundError, AudioManager},
+    sound::{handle::SoundHandle, Sound, SoundSettings},
+};
 use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
@@ -11,7 +15,7 @@ pub enum SoundError {
 }
 
 pub struct SoundResource {
-    sounds: HashMap<String,SoundHandle>,
+    sounds: HashMap<String, SoundHandle>,
     tx: Sender<(String, Sound)>,
     rx: Receiver<(String, Sound)>,
     loading: HashSet<String>,
@@ -36,7 +40,10 @@ impl SoundResource {
         self.loading.is_empty()
     }
 
-    pub fn handle_load_queue(&mut self, audio_manager: &mut AudioManager) -> Result<(), AddSoundError> {
+    pub fn handle_load_queue(
+        &mut self,
+        audio_manager: &mut AudioManager,
+    ) -> Result<(), AddSoundError> {
         while let Ok(loaded) = self.rx.try_recv() {
             self.loading.remove(&loaded.0);
             let sound_handle = audio_manager.add_sound(loaded.1)?;
@@ -60,7 +67,7 @@ impl SoundResource {
         });
     }
 
-    pub fn play_sound(&mut self, url: &str, settings: InstanceSettings) -> Result<(),SoundError> {
+    pub fn play_sound(&mut self, url: &str, settings: InstanceSettings) -> Result<(), SoundError> {
         if let Some(sound) = self.sounds.get_mut(url) {
             self.playing.insert(url.into());
             // TODO handle error

@@ -3,7 +3,14 @@ use std::cmp::{max, min};
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::{RunState, State, components::{CombatStats, Item, Monster, Player, Position, Viewshed, WantsToMelee, WantsToPickupItem}, gamelog::GameLog, map::Map};
+use crate::{
+    components::{
+        CombatStats, Item, Monster, Player, Position, Viewshed, WantsToMelee, WantsToPickupItem,
+    },
+    gamelog::GameLog,
+    map::Map,
+    RunState, State,
+};
 
 fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let mut positions = ecs.write_storage::<Position>();
@@ -103,7 +110,9 @@ fn skip_turn(ecs: &mut World) -> RunState {
             let mob = monsters.get(*entity_id);
             match mob {
                 None => {}
-                Some(_) => { can_heal = false; }
+                Some(_) => {
+                    can_heal = false;
+                }
             }
         }
     }
@@ -124,18 +133,10 @@ pub fn player_input(gs: &mut State, ctx: &mut BTerm) -> RunState {
         None => return RunState::AwaitingInput,
         Some(key) => match key {
             // Cardinals
-            Left | Numpad4 | H => {
-                try_move_player(-1, 0, &mut gs.ecs)
-            }
-            Right | Numpad6 | L => {
-                try_move_player(1, 0, &mut gs.ecs)
-            }
-            Up | Numpad8 | K => {
-                try_move_player(0, -1, &mut gs.ecs)
-            }
-            Down | Numpad2 | J => {
-                try_move_player(0, 1, &mut gs.ecs)
-            }
+            Left | Numpad4 | H => try_move_player(-1, 0, &mut gs.ecs),
+            Right | Numpad6 | L => try_move_player(1, 0, &mut gs.ecs),
+            Up | Numpad8 | K => try_move_player(0, -1, &mut gs.ecs),
+            Down | Numpad2 | J => try_move_player(0, 1, &mut gs.ecs),
 
             // Diagonals
             Numpad9 | U => try_move_player(1, -1, &mut gs.ecs),

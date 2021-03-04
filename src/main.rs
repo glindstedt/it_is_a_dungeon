@@ -86,7 +86,7 @@ impl State {
         let mut drop_items = ItemDropSystem {};
         drop_items.run_now(&self.ecs);
 
-        let mut item_remove = ItemRemoveSystem{};
+        let mut item_remove = ItemRemoveSystem {};
         item_remove.run_now(&self.ecs);
 
         self.ecs.maintain();
@@ -225,7 +225,7 @@ impl State {
         let vs = viewshed_components.get_mut(player_entity);
         if let Some(vs) = vs {
             vs.dirty = true;
-        }                                               
+        }
     }
 
     // TODO remove duplication in new_game and game_over

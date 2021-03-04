@@ -116,7 +116,10 @@ pub struct Confusion {
 }
 
 #[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
-pub enum EquipmentSlot { Melee, Shield }
+pub enum EquipmentSlot {
+    Melee,
+    Shield,
+}
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct Equipable {
