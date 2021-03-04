@@ -1,7 +1,7 @@
 use bracket_lib::prelude::field_of_view;
 use specs::prelude::*;
 
-use crate::{components::{named, AreaOfEffect, CombatStats, Confusion, Consumable, GivenName, InBackpack, InflictsDamage, Name, Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToUseItem}, gamelog::GameLog, map::Map};
+use crate::{components::{AreaOfEffect, CombatStats, Confusion, Consumable, Equipable, Equipped, GivenName, InBackpack, InflictsDamage, Name, Position, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToRemoveItem, WantsToUseItem, named}, gamelog::GameLog, map::Map};
 pub struct ItemUseSystem {}
 
 impl<'a> System<'a> for ItemUseSystem {
@@ -20,6 +20,9 @@ impl<'a> System<'a> for ItemUseSystem {
         WriteStorage<'a, SufferDamage>,
         ReadStorage<'a, AreaOfEffect>,
         WriteStorage<'a, Confusion>,
+        ReadStorage<'a, Equipable>,
+        WriteStorage<'a, Equipped>,
+        WriteStorage<'a, InBackpack>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -38,10 +41,12 @@ impl<'a> System<'a> for ItemUseSystem {
             mut suffer_damage,
             aoe,
             mut confused,
+            equipable,
+            mut equipped,
+            mut backpack,
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_drink).join() {
-            let mut used_item = true;
 
             let mut targets: Vec<Entity> = Vec::new();
             match useitem.target {
@@ -74,63 +79,79 @@ impl<'a> System<'a> for ItemUseSystem {
             }
 
             let item_heals = healing.get(useitem.item);
-            match item_heals {
-                None => {}
-                Some(healer) => {
-                    for target in targets.iter() {
-                        let stats = combat_stats.get_mut(*target);
-                        if let Some(stats) = stats {
-                            stats.hp = i32::min(stats.max_hp, stats.hp + healer.heal_amount);
-                            if entity == *player_entity {
-                                gamelog.entries.push(format!(
-                                    "You drink the {}, healing {} hp.",
-                                    names.get(useitem.item).unwrap().name,
-                                    healer.heal_amount
-                                ));
-                            }
+            if let Some(healer) = item_heals {
+                for target in targets.iter() {
+                    let stats = combat_stats.get_mut(*target);
+                    if let Some(stats) = stats {
+                        stats.hp = i32::min(stats.max_hp, stats.hp + healer.heal_amount);
+                        if entity == *player_entity {
+                            gamelog.entries.push(format!(
+                                "You drink the {}, healing {} hp.",
+                                names.get(useitem.item).unwrap().name,
+                                healer.heal_amount
+                            ));
                         }
                     }
                 }
             }
 
             let item_damages = inflict_damage.get(useitem.item);
-            match item_damages {
-                None => {}
-                Some(damage) => {
-                    used_item = false;
-                    for mob in targets.iter() {
-                        SufferDamage::new_damage(&mut suffer_damage, *mob, damage.damage);
-                        if entity == *player_entity {
-                            let title = named(names.get(*mob), given_names.get(*mob));
-                            let item_name = names.get(useitem.item).unwrap();
-                            gamelog.entries.push(format!(
-                                "You use {} on {}, inflicting {} damage.",
-                                item_name.name, title, damage.damage
-                            ))
-                        }
-
-                        used_item = true;
+            if let Some(damage) = item_damages {
+                for mob in targets.iter() {
+                    SufferDamage::new_damage(&mut suffer_damage, *mob, damage.damage);
+                    if entity == *player_entity {
+                        let title = named(names.get(*mob), given_names.get(*mob));
+                        let item_name = names.get(useitem.item).unwrap();
+                        gamelog.entries.push(format!(
+                            "You use {} on {}, inflicting {} damage.",
+                            item_name.name, title, damage.damage
+                        ))
                     }
+
+                }
+            }
+
+            let item_equipable = equipable.get(useitem.item);
+            if let Some(can_equip) = item_equipable {
+                let target_slot = can_equip.slot;
+                let target = targets[0];
+
+                // Remove any items the target has in the item's slot
+                let mut to_unequip : Vec<Entity> = Vec::new();
+                for (item_entity, already_equipped, name) in (&entities, &equipped, &names).join() {
+                    if already_equipped.owner == target && already_equipped.slot == target_slot {
+                        to_unequip.push(item_entity);
+                        if target == *player_entity {
+                            gamelog.entries.push(format!("You unequip {}.", name.name));
+                        }
+                    }
+                }
+                for item in to_unequip.iter() {
+                    equipped.remove(*item);
+                    backpack.insert(*item, InBackpack{ owner: target }).expect("Unable to insert backpack entry");
+                }
+
+                // Wield the item
+                equipped.insert(useitem.item, Equipped{ owner: target, slot: target_slot }).expect("Unable to insert equipped component");
+                backpack.remove(useitem.item);
+                if target == *player_entity {
+                    gamelog.entries.push(format!("You equip {}.", names.get(useitem.item).unwrap().name));
                 }
             }
 
             let mut add_confusion = Vec::new();
             {
                 let causes_confusion = confused.get(useitem.item);
-                match causes_confusion {
-                    None => {}
-                    Some(confusion) => {
-                        used_item = false;
-                        for mob in targets.iter() {
-                            add_confusion.push((*mob, confusion.turns));
-                            if entity == *player_entity {
-                                let title = named(names.get(*mob), given_names.get(*mob));
-                                let item_name = names.get(useitem.item).unwrap();
-                                gamelog.entries.push(format!(
-                                    "You use {} on {}, confusing them.",
-                                    item_name.name, title
-                                ));
-                            }
+                if let Some(confusion) = causes_confusion {
+                    for mob in targets.iter() {
+                        add_confusion.push((*mob, confusion.turns));
+                        if entity == *player_entity {
+                            let title = named(names.get(*mob), given_names.get(*mob));
+                            let item_name = names.get(useitem.item).unwrap();
+                            gamelog.entries.push(format!(
+                                "You use {} on {}, confusing them.",
+                                item_name.name, title
+                            ));
                         }
                     }
                 }
@@ -198,5 +219,28 @@ impl<'a> System<'a> for ItemDropSystem {
         }
 
         wants_drop.clear();
+    }
+}
+
+pub struct ItemRemoveSystem {}
+
+impl<'a> System<'a> for ItemRemoveSystem {
+    #[allow(clippy::type_complexity)]
+    type SystemData = ( 
+                        Entities<'a>,
+                        WriteStorage<'a, WantsToRemoveItem>,
+                        WriteStorage<'a, Equipped>,
+                        WriteStorage<'a, InBackpack>
+                      );
+
+    fn run(&mut self, data : Self::SystemData) {
+        let (entities, mut wants_remove, mut equipped, mut backpack) = data;
+
+        for (entity, to_remove) in (&entities, &wants_remove).join() {
+            equipped.remove(to_remove.item);
+            backpack.insert(to_remove.item, InBackpack{ owner: entity }).expect("Unable to insert backpack");
+        }
+
+        wants_remove.clear();
     }
 }

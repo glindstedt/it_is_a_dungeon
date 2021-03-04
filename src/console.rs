@@ -216,6 +216,18 @@ fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
                     "spawn confusion          - spawn confusion scroll".into(),
                 ));
                 console.history.push(Output(
+                    "spawn dagger             - spawn dagger".into(),
+                ));
+                console.history.push(Output(
+                    "spawn shield             - spawn shield".into(),
+                ));
+                console.history.push(Output(
+                    "spawn longsword          - spawn longsword".into(),
+                ));
+                console.history.push(Output(
+                    "spawn towershield        - spawn towershield".into(),
+                ));
+                console.history.push(Output(
                     "descend                  - go down 1 level".into(),
                 ));
                 console.history.push(Output(
@@ -246,6 +258,18 @@ fn spawn_commands(gs: &mut State, args: &[&str]) -> Result<(), ConsoleError> {
             }
             "confusion" => {
                 spawner::confusion_scroll(&mut gs.ecs, player_pos.x, player_pos.y);
+            }
+            "dagger" => {
+                spawner::dagger(&mut gs.ecs, player_pos.x, player_pos.y);
+            }
+            "shield" => {
+                spawner::shield(&mut gs.ecs, player_pos.x, player_pos.y);
+            }
+            "longsword" => {
+                spawner::longsword(&mut gs.ecs, player_pos.x, player_pos.y);
+            }
+            "towershield" => {
+                spawner::tower_shield(&mut gs.ecs, player_pos.x, player_pos.y);
             }
             c => return Err(ConsoleError::UnknownCommand(format!("spawn {}", c).into())),
         }

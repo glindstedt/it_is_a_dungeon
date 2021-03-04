@@ -25,6 +25,11 @@ pub struct WantsToDropItem {
 }
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct WantsToRemoveItem {
+    pub item: Entity,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct WantsToUseItem {
     pub item: Entity,
     pub target: Option<Point>,

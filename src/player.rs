@@ -153,6 +153,8 @@ pub fn player_input(gs: &mut State, ctx: &mut BTerm) -> RunState {
             I => return RunState::ShowInventory,
             // Drop item
             D => return RunState::ShowDropItem,
+            // Drop item
+            R => return RunState::ShowRemoveItem,
             // Level changes
             Period => {
                 if crate::map::try_next_level(&mut gs.ecs) {

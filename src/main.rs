@@ -1,5 +1,6 @@
 use audio::SoundResource;
 use bracket_lib::prelude::*;
+use gui::MainMenuSelection;
 use kira::{
     instance::InstanceSettings,
     manager::{AudioManager, AudioManagerSettings},
@@ -41,6 +42,7 @@ pub enum RunState {
     MonsterTurn,
     ShowInventory,
     ShowDropItem,
+    ShowRemoveItem,
     ShowTargeting {
         range: i32,
         item: Entity,
@@ -51,6 +53,7 @@ pub enum RunState {
     Loading,
     SaveGame,
     NextLevel,
+    GameOver,
 }
 
 pub struct State {
@@ -83,6 +86,9 @@ impl State {
         let mut drop_items = ItemDropSystem {};
         drop_items.run_now(&self.ecs);
 
+        let mut item_remove = ItemRemoveSystem{};
+        item_remove.run_now(&self.ecs);
+
         self.ecs.maintain();
     }
 
@@ -90,6 +96,7 @@ impl State {
         let entities = self.ecs.entities();
         let player = self.ecs.read_storage::<Player>();
         let backpack = self.ecs.read_storage::<InBackpack>();
+        let equipped = self.ecs.read_storage::<Equipped>();
         let player_entity = self.ecs.fetch::<Entity>();
 
         let mut to_delete: Vec<Entity> = Vec::new();
@@ -106,6 +113,12 @@ impl State {
             let bp = backpack.get(entity);
             if let Some(bp) = bp {
                 if bp.owner == *player_entity {
+                    should_delete = false;
+                }
+            }
+            let eq = equipped.get(entity);
+            if let Some(eq) = eq {
+                if eq.owner == *player_entity {
                     should_delete = false;
                 }
             }
@@ -169,6 +182,90 @@ impl State {
             player_health.hp = i32::max(player_health.hp, player_health.max_hp / 2);
         }
     }
+
+    fn game_over_cleanup(&mut self) {
+        // Delete everything
+        let mut to_delete = Vec::new();
+        for e in self.ecs.entities().join() {
+            to_delete.push(e);
+        }
+        for del in to_delete.iter() {
+            self.ecs.delete_entity(*del).expect("Deletion failed");
+        }
+
+        // Build a new map and place the player
+        let worldmap;
+        {
+            let mut worldmap_resource = self.ecs.write_resource::<Map>();
+            *worldmap_resource = Map::new_map_rooms_and_corridors(1);
+            worldmap = worldmap_resource.clone();
+        }
+
+        // Spawn bad guys
+        for room in worldmap.rooms.iter().skip(1) {
+            spawner::spawn_room(&mut self.ecs, room, 1);
+        }
+
+        // Place the player and update resources
+        let (player_x, player_y) = worldmap.rooms[0].center();
+        let player_entity = spawner::player(&mut self.ecs, player_x, player_y);
+        let mut player_position = self.ecs.write_resource::<Point>();
+        *player_position = Point::new(player_x, player_y);
+        let mut position_components = self.ecs.write_storage::<Position>();
+        let mut player_entity_writer = self.ecs.write_resource::<Entity>();
+        *player_entity_writer = player_entity;
+        let player_pos_comp = position_components.get_mut(player_entity);
+        if let Some(player_pos_comp) = player_pos_comp {
+            player_pos_comp.x = player_x;
+            player_pos_comp.y = player_y;
+        }
+
+        // Mark the player's visibility as dirty
+        let mut viewshed_components = self.ecs.write_storage::<Viewshed>();
+        let vs = viewshed_components.get_mut(player_entity);
+        if let Some(vs) = vs {
+            vs.dirty = true;
+        }                                               
+    }
+
+    // TODO remove duplication in new_game and game_over
+    fn new_game(&mut self) {
+        // Clean up old stuff, if present
+        let entities = {
+            let mut entities = Vec::new();
+
+            let data = (
+                &self.ecs.entities(),
+                &self.ecs.read_storage::<SimpleMarker<SerializeMe>>(),
+            );
+            for (entity, _) in data.join() {
+                entities.push(entity);
+            }
+            entities
+        };
+
+        match self.ecs.delete_entities(entities.as_slice()) {
+            Ok(_) => {}
+            Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
+        }
+
+        // Set up new stuff
+        let map = Map::new_map_rooms_and_corridors(1);
+        for room in map.rooms.iter().skip(1) {
+            spawner::spawn_room(&mut self.ecs, room, map.depth);
+        }
+
+        let (player_x, player_y) = map.rooms[0].center();
+
+        let player_entity = spawner::player(&mut self.ecs, player_x, player_y);
+
+        self.ecs.insert(Point::new(player_x, player_y));
+        self.ecs.insert(player_entity);
+        self.ecs.insert(map);
+        self.ecs.insert(gamelog::GameLog {
+            entries: vec!["Welcome to the deep".to_string()],
+        });
+    }
 }
 
 impl GameState for State {
@@ -214,6 +311,7 @@ impl GameState for State {
 
                 new_runstate = RunState::AwaitingInput;
             }
+            // TODO refactor so there's no duplication between this and GameOver
             RunState::PostRun => {
                 // Stop audio loop
                 let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
@@ -221,6 +319,23 @@ impl GameState for State {
                 new_runstate = RunState::MainMenu {
                     menu_selection: gui::MainMenuSelection::LoadGame,
                 };
+            }
+            RunState::GameOver => {
+                let result = gui::game_over(ctx);
+                match result {
+                    gui::GameOverResult::NoSelection => {}
+                    gui::GameOverResult::QuitToMenu => {
+                        {
+                            // Stop audio loop
+                            let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
+                            sound_resource.stop_all_sounds();
+                        }
+                        self.game_over_cleanup();
+                        new_runstate = RunState::MainMenu {
+                            menu_selection: gui::MainMenuSelection::NewGame,
+                        }
+                    }
+                }
             }
             // Debug console
             RunState::Console => {
@@ -306,6 +421,24 @@ impl GameState for State {
                     }
                 }
             }
+            RunState::ShowRemoveItem => {
+                let result = gui::remove_item_menu(self, ctx);
+                match result.0 {
+                    gui::ItemMenuResult::Cancel => new_runstate = RunState::AwaitingInput,
+                    gui::ItemMenuResult::NoResponse => {}
+                    gui::ItemMenuResult::Selected => {
+                        let item_entity = result.1.unwrap();
+                        let mut intent = self.ecs.write_storage::<WantsToRemoveItem>();
+                        intent
+                            .insert(
+                                *self.ecs.fetch::<Entity>(),
+                                WantsToRemoveItem { item: item_entity },
+                            )
+                            .expect("Unable to insert intent");
+                        new_runstate = RunState::PlayerTurn;
+                    }
+                }
+            }
 
             RunState::MainMenu { .. } => {
                 let result = gui::main_menu(self, ctx);
@@ -317,7 +450,7 @@ impl GameState for State {
                     }
                     gui::MainMenuResult::Selected { selected } => match selected {
                         gui::MainMenuSelection::NewGame => {
-                            new_game(&mut self.ecs);
+                            self.new_game();
 
                             // Load audio
                             let url = "assets/audio/gr1.ogg";
@@ -331,7 +464,7 @@ impl GameState for State {
                                 Ok(_) => {}
                                 Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                             }
-                            new_runstate = RunState::AwaitingInput;
+                            new_runstate = RunState::Loading;
                             match systems::delete_save() {
                                 Ok(_) => {}
                                 Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
@@ -388,44 +521,6 @@ impl GameState for State {
     }
 }
 
-fn new_game(ecs: &mut World) {
-    // Clean up old stuff, if present
-    let entities = {
-        let mut entities = Vec::new();
-
-        let data = (
-            &ecs.entities(),
-            &ecs.read_storage::<SimpleMarker<SerializeMe>>(),
-        );
-        for (entity, _) in data.join() {
-            entities.push(entity);
-        }
-        entities
-    };
-
-    match ecs.delete_entities(entities.as_slice()) {
-        Ok(_) => {}
-        Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
-    }
-
-    // Set up new stuff
-    let map = Map::new_map_rooms_and_corridors(1);
-    for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(ecs, room, map.depth);
-    }
-
-    let (player_x, player_y) = map.rooms[0].center();
-
-    let player_entity = spawner::player(ecs, player_x, player_y);
-
-    ecs.insert(Point::new(player_x, player_y));
-    ecs.insert(player_entity);
-    ecs.insert(map);
-    ecs.insert(gamelog::GameLog {
-        entries: vec!["Welcome to the deep".to_string()],
-    });
-}
-
 fn main() -> BError {
     let mut context = BTermBuilder::simple80x50()
         .with_title("It is a game")
@@ -453,6 +548,7 @@ fn main() -> BError {
     state.ecs.register::<InBackpack>();
     state.ecs.register::<WantsToPickupItem>();
     state.ecs.register::<WantsToDropItem>();
+    state.ecs.register::<WantsToRemoveItem>();
     state.ecs.register::<WantsToUseItem>();
     state.ecs.register::<Consumable>();
     state.ecs.register::<ProvidesHealing>();
@@ -460,6 +556,10 @@ fn main() -> BError {
     state.ecs.register::<InflictsDamage>();
     state.ecs.register::<AreaOfEffect>();
     state.ecs.register::<Confusion>();
+    state.ecs.register::<Equipable>();
+    state.ecs.register::<Equipped>();
+    state.ecs.register::<MeleePowerBonus>();
+    state.ecs.register::<DefenceBonus>();
     state.ecs.register::<SerializationHelper>();
 
     // Resources
@@ -477,7 +577,7 @@ fn main() -> BError {
     state.ecs.insert(audio_manager);
     state.ecs.insert(SoundResource::default());
 
-    new_game(&mut state.ecs);
+    state.new_game();
 
     main_loop(context, state)
 }

@@ -96,9 +96,14 @@ pub fn save_game(ecs: &mut World) -> Result<(), SaveLoadError> {
             InflictsDamage,
             AreaOfEffect,
             Confusion,
+            Equipable,
+            Equipped,
+            MeleePowerBonus,
+            DefenceBonus,
             WantsToMelee,
             WantsToPickupItem,
             WantsToDropItem,
+            WantsToRemoveItem,
             WantsToUseItem,
             SerializationHelper
         );
@@ -144,9 +149,14 @@ pub fn load_game(ecs: &mut World) -> Result<(), SaveLoadError> {
             InflictsDamage,
             AreaOfEffect,
             Confusion,
+            Equipable,
+            Equipped,
+            MeleePowerBonus,
+            DefenceBonus,
             WantsToMelee,
             WantsToPickupItem,
             WantsToDropItem,
+            WantsToRemoveItem,
             WantsToUseItem,
             SerializationHelper
         );

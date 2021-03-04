@@ -1,6 +1,6 @@
 use specs::prelude::*;
 
-use crate::components::{CombatStats, GivenName, Name, Player, SufferDamage, named};
+use crate::{RunState, components::{CombatStats, GivenName, Name, Player, SufferDamage, named}};
 use crate::gamelog::GameLog;
 
 pub struct DamageSystem {}
@@ -41,7 +41,10 @@ pub fn delete_the_dead(ecs: &mut World) {
                         log.entries.push(format!("{} is dead", title));
                         dead.push(entity)
                     }
-                    Some(_) => log.entries.push("You are dead :(".to_string()),
+                    Some(_) => {
+                        let mut runstate = ecs.write_resource::<RunState>();
+                        *runstate = RunState::GameOver;
+                    }
                 }
             }
         }

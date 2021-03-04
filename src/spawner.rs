@@ -6,7 +6,7 @@ use specs::{
     saveload::{MarkedBuilder, SimpleMarker},
 };
 
-use crate::{components::{AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, GivenName, InflictsDamage, Item, Monster, Name, Player, Position, ProvidesHealing, Ranged, Renderable, SerializeMe, Viewshed}, random_table::RandomTable};
+use crate::{components::{AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenceBonus, Equipable, EquipmentSlot, GivenName, InflictsDamage, Item, MeleePowerBonus, Monster, Name, Player, Position, ProvidesHealing, Ranged, Renderable, SerializeMe, Viewshed}, random_table::RandomTable};
 
 const MAX_MONSTERS: i32 = 4;
 
@@ -43,7 +43,7 @@ fn monster<S: ToString>(ecs: &mut World, x: i32, y: i32, glyph: FontCharType, na
         .with(CombatStats {
             max_hp: 16,
             hp: 16,
-            defense: 1,
+            defence: 1,
             power: 4,
         })
         .build();
@@ -74,7 +74,7 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
         .with(CombatStats {
             max_hp: 30,
             hp: 30,
-            defense: 2,
+            defence: 2,
             power: 5,
         })
         .build()
@@ -160,6 +160,74 @@ pub fn confusion_scroll(ecs: &mut World, x: i32, y: i32) {
         .build();
 }
 
+pub fn dagger(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position{ x, y })
+        .with(Renderable{
+            glyph: to_cp437('/'),
+            fg: RGB::named(CYAN),
+            bg: RGB::named(BLACK),
+            render_order: 2
+        })
+        .with(Name{ name : "Dagger".to_string() })
+        .with(Item{})
+        .with(Equipable{ slot: EquipmentSlot::Melee })
+        .with(MeleePowerBonus { power: 2 })
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+
+pub fn longsword(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position{ x, y })
+        .with(Renderable{
+            glyph: to_cp437('/'),
+            fg: RGB::named(YELLOW),
+            bg: RGB::named(BLACK),
+            render_order: 2
+        })
+        .with(Name{ name : "Longsword".to_string() })
+        .with(Item{})
+        .with(Equipable{ slot: EquipmentSlot::Melee })
+        .with(MeleePowerBonus { power: 4 })
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+
+pub fn shield(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position{ x, y })
+        .with(Renderable{
+            glyph: to_cp437('('),
+            fg: RGB::named(CYAN),
+            bg: RGB::named(BLACK),
+            render_order: 2
+        })
+        .with(Name{ name : "Shield".to_string() })
+        .with(Item{})
+        .with(Equipable{ slot: EquipmentSlot::Shield })
+        .with(DefenceBonus { defence: 1 })
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+
+pub fn tower_shield(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .with(Position{ x, y })
+        .with(Renderable{
+            glyph: to_cp437('('),
+            fg: RGB::named(YELLOW),
+            bg: RGB::named(BLACK),
+            render_order: 2
+        })
+        .with(Name{ name : "Tower Shield".to_string() })
+        .with(Item{})
+        .with(Equipable{ slot: EquipmentSlot::Shield })
+        .with(DefenceBonus { defence: 3 })
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+
 fn room_table(map_depth: i32) -> RandomTable {
     RandomTable::new()
         .add("Goblin", 10)
@@ -168,6 +236,10 @@ fn room_table(map_depth: i32) -> RandomTable {
         .add("Fireball Scroll", 2 + map_depth)
         .add("Confusion Scroll", 2 + map_depth)
         .add("Magic Missile Scroll", 4)
+        .add("Dagger", 3)
+        .add("Shield", 3)
+        .add("Longsword", map_depth - 1)
+        .add("Tower Shield",  map_depth - 1)
 }
 
 fn name_table() -> RandomTable {
@@ -250,6 +322,10 @@ pub fn spawn_room(ecs: &mut World, room: &crate::rect::Rect, map_depth: i32) {
             "Fireball Scroll" => fireball_scroll(ecs, x, y),
             "Confusion Scroll" => confusion_scroll(ecs, x, y),
             "Magic Missile Scroll" => magic_missile_scroll(ecs, x, y),
+            "Dagger" => dagger(ecs, x, y),
+            "Shield" => shield(ecs, x, y),
+            "Longsword" => longsword(ecs, x, y),
+            "Tower Shield" => tower_shield(ecs, x, y),
             _ => {}
         }
     }

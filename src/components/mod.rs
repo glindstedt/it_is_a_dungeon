@@ -57,7 +57,7 @@ pub struct BlocksTile {}
 pub struct CombatStats {
     pub max_hp: i32,
     pub hp: i32,
-    pub defense: i32,
+    pub defence: i32,
     pub power: i32,
 }
 
@@ -113,6 +113,30 @@ pub struct AreaOfEffect {
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct Confusion {
     pub turns: i32,
+}
+
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
+pub enum EquipmentSlot { Melee, Shield }
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct Equipable {
+    pub slot: EquipmentSlot,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct Equipped {
+    pub owner: Entity,
+    pub slot: EquipmentSlot,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct MeleePowerBonus {
+    pub power: i32,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct DefenceBonus {
+    pub defence: i32,
 }
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]
