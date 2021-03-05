@@ -174,7 +174,11 @@ impl SoundResource {
 
         if let Some(next) = self.music_handles.get_mut(&music) {
             self.current_music = Some(music);
-            next.play(InstanceSettings::default().loop_start(0f64).fade_in_tween(tween))?;
+            next.play(
+                InstanceSettings::default()
+                    .loop_start(0f64)
+                    .fade_in_tween(tween),
+            )?;
         }
 
         Ok(())

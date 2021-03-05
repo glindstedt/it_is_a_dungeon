@@ -2,7 +2,12 @@ use bracket_lib::prelude::*;
 use kira::instance::InstanceSettings;
 use specs::prelude::*;
 
-use crate::{RunState, audio::SoundResource, components::{Confusion, EntityMoved, Monster, MonsterType, Position, Viewshed, WantsToMelee}, map::Map};
+use crate::{
+    audio::SoundResource,
+    components::{Confusion, EntityMoved, Monster, MonsterType, Position, Viewshed, WantsToMelee},
+    map::Map,
+    RunState,
+};
 
 use super::ParticleBuilder;
 

@@ -207,9 +207,9 @@ fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
                 console
                     .history
                     .push(Output("fog                      - toggle map fog".into()));
-                console
-                    .history
-                    .push(Output("reveal                   - toggle reveal hidden".into()));
+                console.history.push(Output(
+                    "reveal                   - toggle reveal hidden".into(),
+                ));
                 console
                     .history
                     .push(Output("spawn potion             - spawn potion".into()));
@@ -234,9 +234,9 @@ fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
                 console.history.push(Output(
                     "spawn towershield        - spawn towershield".into(),
                 ));
-                console.history.push(Output(
-                    "spawn trap               - spawn trap".into(),
-                ));
+                console
+                    .history
+                    .push(Output("spawn trap               - spawn trap".into()));
                 console
                     .history
                     .push(Output("descend                  - go down 1 level".into()));

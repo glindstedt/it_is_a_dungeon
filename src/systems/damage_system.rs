@@ -7,7 +7,12 @@ use kira::{
 };
 use specs::prelude::*;
 
-use crate::{audio::{DesireMusic, Music, SoundResource}, components::Position, gamelog::GameLog, map::Map};
+use crate::{
+    audio::{DesireMusic, Music, SoundResource},
+    components::Position,
+    gamelog::GameLog,
+    map::Map,
+};
 use crate::{
     components::{named, CombatStats, GivenName, Name, Player, SufferDamage},
     RunState,

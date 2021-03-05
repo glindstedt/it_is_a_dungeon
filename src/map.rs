@@ -7,7 +7,7 @@ use bracket_lib::prelude::*;
 use serde::{Deserialize, Serialize};
 use specs::prelude::*;
 
-use crate::{DebugOptions, gamelog::GameLog, rect::Rect};
+use crate::{gamelog::GameLog, rect::Rect, DebugOptions};
 
 pub const MAPWIDTH: usize = 80;
 pub const MAPHEIGHT: usize = 43;

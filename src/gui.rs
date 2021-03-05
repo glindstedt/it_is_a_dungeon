@@ -1,7 +1,7 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::{DebugOptions, components::Viewshed, gamelog::GameLog};
+use crate::{components::Viewshed, gamelog::GameLog, DebugOptions};
 use crate::{
     components::{CombatStats, HungerClock, HungerState, Name, Player, Position},
     RunState, State,

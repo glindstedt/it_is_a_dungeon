@@ -2,7 +2,15 @@ use bracket_lib::prelude::*;
 use kira::instance::InstanceSettings;
 use specs::prelude::*;
 
-use crate::{audio::SoundResource, components::{EntityMoved, EntryTrigger, GivenName, Hidden, InflictsDamage, Name, Position, SingleActivation, SufferDamage, named}, gamelog::GameLog, map::Map};
+use crate::{
+    audio::SoundResource,
+    components::{
+        named, EntityMoved, EntryTrigger, GivenName, Hidden, InflictsDamage, Name, Position,
+        SingleActivation, SufferDamage,
+    },
+    gamelog::GameLog,
+    map::Map,
+};
 
 use super::ParticleBuilder;
 
@@ -28,8 +36,23 @@ impl<'a> System<'a> for TriggerSystem {
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (map, mut entity_moved, position, entry_trigger, mut hidden, names, given_names, inflicts_damage, mut suffer_damage, mut particle_builder, single_activation, entities, mut log, mut sounds, mut rng) =
-            data;
+        let (
+            map,
+            mut entity_moved,
+            position,
+            entry_trigger,
+            mut hidden,
+            names,
+            given_names,
+            inflicts_damage,
+            mut suffer_damage,
+            mut particle_builder,
+            single_activation,
+            entities,
+            mut log,
+            mut sounds,
+            mut rng,
+        ) = data;
 
         let mut remove_entities: Vec<Entity> = Vec::new();
         for (entity, mut _entity_moved, pos) in (&entities, &mut entity_moved, &position).join() {
@@ -44,16 +67,23 @@ impl<'a> System<'a> for TriggerSystem {
 
                         // Do damage, if any
                         if let Some(damage) = inflicts_damage.get(*entity_id) {
-                            particle_builder.request(pos.x, pos.y, RGB::named(ORANGE), RGB::named(BLACK), to_cp437('‼'), 200.0);
+                            particle_builder.request(
+                                pos.x,
+                                pos.y,
+                                RGB::named(ORANGE),
+                                RGB::named(BLACK),
+                                to_cp437('‼'),
+                                200.0,
+                            );
                             SufferDamage::new_damage(&mut suffer_damage, entity, damage.damage);
 
                             let fool_title = named(names.get(entity), given_names.get(*entity_id));
-                            log.entries.push(format!("{} suffers {} damage.", fool_title, damage.damage));
+                            log.entries
+                                .push(format!("{} suffers {} damage.", fool_title, damage.damage));
 
-                            match sounds.play_sound(
-                                trap_sound(&mut rng),
-                                InstanceSettings::default(),
-                            ) {
+                            match sounds
+                                .play_sound(trap_sound(&mut rng), InstanceSettings::default())
+                            {
                                 Ok(_) => {}
                                 Err(e) => console::log(format!("Unable to play sound: {}", e)),
                             }
