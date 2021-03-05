@@ -4,8 +4,8 @@ use specs::prelude::*;
 use crate::{
     components::{
         named, AreaOfEffect, CombatStats, Confusion, Consumable, Equipable, Equipped, GivenName,
-        InBackpack, InflictsDamage, Name, Position, ProvidesHealing, SufferDamage, WantsToDropItem,
-        WantsToRemoveItem, WantsToUseItem,
+        HungerClock, HungerState, InBackpack, InflictsDamage, Name, Position, ProvidesFood,
+        ProvidesHealing, SufferDamage, WantsToDropItem, WantsToRemoveItem, WantsToUseItem,
     },
     gamelog::GameLog,
     map::Map,
@@ -35,6 +35,8 @@ impl<'a> System<'a> for ItemUseSystem {
         WriteStorage<'a, InBackpack>,
         WriteExpect<'a, ParticleBuilder>,
         ReadStorage<'a, Position>,
+        ReadStorage<'a, ProvidesFood>,
+        WriteStorage<'a, HungerClock>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -57,7 +59,9 @@ impl<'a> System<'a> for ItemUseSystem {
             mut equipped,
             mut backpack,
             mut particle_builder,
-            positions
+            positions,
+            provides_food,
+            mut hunger_clocks,
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_drink).join() {
@@ -85,15 +89,21 @@ impl<'a> System<'a> for ItemUseSystem {
                                 for mob in map.tile_content[idx].iter() {
                                     targets.push(*mob);
                                 }
-                                particle_builder.request(tile_idx.x, tile_idx.y, RGB::named(ORANGE), RGB::named(BLACK), to_cp437('░'), 200.0)
+                                particle_builder.request(
+                                    tile_idx.x,
+                                    tile_idx.y,
+                                    RGB::named(ORANGE),
+                                    RGB::named(BLACK),
+                                    to_cp437('░'),
+                                    200.0,
+                                )
                             }
                         }
                     }
                 }
             }
 
-            let item_heals = healing.get(useitem.item);
-            if let Some(healer) = item_heals {
+            if let Some(healer) = healing.get(useitem.item) {
                 for target in targets.iter() {
                     let stats = combat_stats.get_mut(*target);
                     if let Some(stats) = stats {
@@ -106,14 +116,33 @@ impl<'a> System<'a> for ItemUseSystem {
                             ));
                         }
                         if let Some(pos) = positions.get(*target) {
-                            particle_builder.request(pos.x, pos.y, RGB::named(GREEN), RGB::named(BLACK), to_cp437('♥'), 200.0)
+                            particle_builder.request(
+                                pos.x,
+                                pos.y,
+                                RGB::named(GREEN),
+                                RGB::named(BLACK),
+                                to_cp437('♥'),
+                                200.0,
+                            )
                         }
                     }
                 }
             }
 
-            let item_damages = inflict_damage.get(useitem.item);
-            if let Some(damage) = item_damages {
+            if provides_food.get(useitem.item).is_some() {
+                let target = targets[0];
+                let hc = hunger_clocks.get_mut(target);
+                if let Some(hc) = hc {
+                    hc.state = HungerState::WellFed;
+                    hc.duration = 20;
+                    gamelog.entries.push(format!(
+                        "You eat the {}.",
+                        names.get(useitem.item).unwrap().name,
+                    ));
+                }
+            }
+
+            if let Some(damage) = inflict_damage.get(useitem.item) {
                 for mob in targets.iter() {
                     SufferDamage::new_damage(&mut suffer_damage, *mob, damage.damage);
                     if entity == *player_entity {
@@ -124,14 +153,20 @@ impl<'a> System<'a> for ItemUseSystem {
                             item_name.name, title, damage.damage
                         ));
                         if let Some(pos) = positions.get(*mob) {
-                            particle_builder.request(pos.x, pos.y, RGB::named(RED), RGB::named(BLACK), to_cp437('‼'), 200.0)
+                            particle_builder.request(
+                                pos.x,
+                                pos.y,
+                                RGB::named(RED),
+                                RGB::named(BLACK),
+                                to_cp437('‼'),
+                                200.0,
+                            )
                         }
                     }
                 }
             }
 
-            let item_equipable = equipable.get(useitem.item);
-            if let Some(can_equip) = item_equipable {
+            if let Some(can_equip) = equipable.get(useitem.item) {
                 let target_slot = can_equip.slot;
                 let target = targets[0];
 
@@ -173,8 +208,7 @@ impl<'a> System<'a> for ItemUseSystem {
 
             let mut add_confusion = Vec::new();
             {
-                let causes_confusion = confused.get(useitem.item);
-                if let Some(confusion) = causes_confusion {
+                if let Some(confusion) = confused.get(useitem.item) {
                     for mob in targets.iter() {
                         add_confusion.push((*mob, confusion.turns));
                         if entity == *player_entity {
@@ -186,7 +220,14 @@ impl<'a> System<'a> for ItemUseSystem {
                             ));
                         }
                         if let Some(pos) = positions.get(*mob) {
-                            particle_builder.request(pos.x, pos.y, RGB::named(MAGENTA), RGB::named(BLACK), to_cp437('?'), 200.0)
+                            particle_builder.request(
+                                pos.x,
+                                pos.y,
+                                RGB::named(MAGENTA),
+                                RGB::named(BLACK),
+                                to_cp437('?'),
+                                200.0,
+                            )
                         }
                     }
                 }
@@ -197,8 +238,7 @@ impl<'a> System<'a> for ItemUseSystem {
                     .expect("Unable to insert status");
             }
 
-            let consumable = consumables.get(useitem.item);
-            if consumable.is_some() {
+            if consumables.get(useitem.item).is_some() {
                 entities.delete(useitem.item).expect("Delete failed")
             }
         }

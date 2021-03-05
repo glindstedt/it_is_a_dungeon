@@ -58,7 +58,14 @@ impl<'a> System<'a> for MonsterAI {
                     confused.remove(entity);
                 }
                 can_act = false;
-                particle_builder.request(pos.x, pos.y, RGB::named(MAGENTA), RGB::named(BLACK), to_cp437('?'), 200.0);
+                particle_builder.request(
+                    pos.x,
+                    pos.y,
+                    RGB::named(MAGENTA),
+                    RGB::named(BLACK),
+                    to_cp437('?'),
+                    200.0,
+                );
             }
 
             if can_act {

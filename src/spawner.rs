@@ -9,8 +9,9 @@ use specs::{
 use crate::{
     components::{
         AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenceBonus, Equipable,
-        EquipmentSlot, GivenName, InflictsDamage, Item, MeleePowerBonus, Monster, Name, Player,
-        Position, ProvidesHealing, Ranged, Renderable, SerializeMe, Viewshed,
+        EquipmentSlot, GivenName, HungerClock, HungerState, InflictsDamage, Item, MeleePowerBonus,
+        Monster, Name, Player, Position, ProvidesFood, ProvidesHealing, Ranged, Renderable,
+        SerializeMe, Viewshed,
     },
     random_table::RandomTable,
 };
@@ -91,7 +92,30 @@ pub fn player(ecs: &mut World, player_x: i32, player_y: i32) -> Entity {
             defence: 2,
             power: 5,
         })
+        .with(HungerClock {
+            state: HungerState::WellFed,
+            duration: 20,
+        })
         .build()
+}
+
+pub fn rations(ecs: &mut World, x: i32, y: i32) {
+    ecs.create_entity()
+        .marked::<SimpleMarker<SerializeMe>>()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: to_cp437('%'),
+            fg: RGB::named(GREEN),
+            bg: RGB::named(BLACK),
+            render_order: 2,
+        })
+        .with(Name {
+            name: "Rations".to_string(),
+        })
+        .with(Item {})
+        .with(Consumable {})
+        .with(ProvidesFood {})
+        .build();
 }
 
 pub fn health_potion(ecs: &mut World, x: i32, y: i32) {
@@ -270,6 +294,7 @@ fn room_table(map_depth: i32) -> RandomTable {
         .add("Shield", 3)
         .add("Longsword", map_depth - 1)
         .add("Tower Shield", map_depth - 1)
+        .add("Rations", 10)
 }
 
 fn name_table() -> RandomTable {
@@ -356,6 +381,7 @@ pub fn spawn_room(ecs: &mut World, room: &crate::rect::Rect, map_depth: i32) {
             "Shield" => shield(ecs, x, y),
             "Longsword" => longsword(ecs, x, y),
             "Tower Shield" => tower_shield(ecs, x, y),
+            "Rations" => rations(ecs, x, y),
             _ => {}
         }
     }

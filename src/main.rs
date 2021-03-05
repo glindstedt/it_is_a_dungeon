@@ -50,6 +50,7 @@ pub enum RunState {
     MainMenu {
         menu_selection: gui::MainMenuSelection,
     },
+    PreLoading,
     Loading,
     SaveGame,
     NextLevel,
@@ -91,6 +92,9 @@ impl State {
 
         let mut particles = ParticleSpawnSystem {};
         particles.run_now(&self.ecs);
+
+        let mut hunger = HungerSystem {};
+        hunger.run_now(&self.ecs);
 
         self.ecs.maintain();
     }
@@ -454,14 +458,14 @@ impl GameState for State {
                         gui::MainMenuSelection::NewGame => {
                             self.new_game();
 
-                            new_runstate = RunState::Loading
+                            new_runstate = RunState::PreLoading
                         }
                         gui::MainMenuSelection::LoadGame => {
                             match systems::load_game(&mut self.ecs) {
                                 Ok(_) => {}
                                 Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                             }
-                            new_runstate = RunState::Loading;
+                            new_runstate = RunState::PreLoading;
                             match systems::delete_save() {
                                 Ok(_) => {}
                                 Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
@@ -471,13 +475,19 @@ impl GameState for State {
                     },
                 }
             }
-            RunState::Loading => {
+            // Start all loading processes
+            RunState::PreLoading => {
                 let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
 
                 // Load audio from assets if not done previously
                 let url = "assets/audio/gr1.ogg";
                 sound_resource.load_audio(url);
 
+                new_runstate = RunState::Loading;
+            }
+            // Wait until all loading processes have finished
+            RunState::Loading => {
+                let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
                 let mut audio_manager = self.ecs.fetch_mut::<AudioManager>();
                 if !sound_resource.finished_loading() {
                     bracket_lib::terminal::console::log("Handling load queue...");
@@ -498,7 +508,7 @@ impl GameState for State {
                         )
                         .unwrap();
 
-                    new_runstate = RunState::PreRun
+                    new_runstate = RunState::PreRun;
                 }
             }
             RunState::SaveGame => {
@@ -525,7 +535,7 @@ impl GameState for State {
 
 fn main() -> BError {
     let mut context = BTermBuilder::simple80x50()
-        .with_title("It is a game")
+        .with_title("It is a dungeon")
         .build()?;
     // context.with_post_scanlines(true);
 
@@ -563,6 +573,8 @@ fn main() -> BError {
     state.ecs.register::<MeleePowerBonus>();
     state.ecs.register::<DefenceBonus>();
     state.ecs.register::<ParticleLifetime>();
+    state.ecs.register::<HungerClock>();
+    state.ecs.register::<ProvidesFood>();
     state.ecs.register::<SerializationHelper>();
 
     // Resources

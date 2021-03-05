@@ -147,6 +147,23 @@ pub struct ParticleLifetime {
     pub lifetime_ms: f32,
 }
 
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
+pub enum HungerState {
+    WellFed,
+    Normal,
+    Hungry,
+    Starving,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct HungerClock {
+    pub state: HungerState,
+    pub duration: i32,
+}
+
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct ProvidesFood {}
+
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct SerializationHelper {
     pub map: crate::map::Map,

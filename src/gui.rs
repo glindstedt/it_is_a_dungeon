@@ -4,7 +4,7 @@ use specs::prelude::*;
 use crate::{components::InBackpack, console};
 use crate::{components::Viewshed, gamelog::GameLog};
 use crate::{
-    components::{CombatStats, Name, Player, Position},
+    components::{CombatStats, HungerClock, HungerState, Name, Player, Position},
     RunState, State,
 };
 use crate::{
@@ -29,7 +29,7 @@ pub fn main_menu(gs: &mut State, ctx: &mut BTerm) -> MainMenuResult {
     let save_exists = crate::systems::does_save_exist();
     let runstate = gs.ecs.fetch::<RunState>();
 
-    ctx.print_color_centered(15, RGB::named(YELLOW), RGB::named(BLACK), "It is a game");
+    ctx.print_color_centered(15, RGB::named(YELLOW), RGB::named(BLACK), "It is a dungeon");
 
     if let RunState::MainMenu {
         menu_selection: selection,
@@ -123,7 +123,8 @@ pub fn draw_ui(ecs: &World, ctx: &mut BTerm) {
 
     let combat_stats = ecs.read_storage::<CombatStats>();
     let players = ecs.read_storage::<Player>();
-    for (_player, stats) in (&players, &combat_stats).join() {
+    let hunger = ecs.read_storage::<HungerClock>();
+    for (_player, stats, hc) in (&players, &combat_stats, &hunger).join() {
         let health = format!(" HP: {} / {} ", stats.hp, stats.max_hp);
         ctx.print_color(12, 43, RGB::named(YELLOW), RGB::named(BLACK), &health);
         ctx.draw_bar_horizontal(
@@ -135,6 +136,19 @@ pub fn draw_ui(ecs: &World, ctx: &mut BTerm) {
             RGB::named(RED),
             RGB::named(BLACK),
         );
+
+        match hc.state {
+            HungerState::WellFed => {
+                ctx.print_color(71, 42, RGB::named(GREEN), RGB::named(BLACK), "Well Fed")
+            }
+            HungerState::Normal => {}
+            HungerState::Hungry => {
+                ctx.print_color(71, 42, RGB::named(ORANGE), RGB::named(BLACK), "Hungry")
+            }
+            HungerState::Starving => {
+                ctx.print_color(71, 42, RGB::named(RED), RGB::named(BLACK), "Starving")
+            }
+        }
     }
 
     let log = ecs.fetch::<GameLog>();

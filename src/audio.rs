@@ -53,8 +53,15 @@ impl SoundResource {
     }
 
     pub fn load_audio(&mut self, url: &'static str) {
-        // Was loaded previously, ignore
-        if self.sounds.get(url).is_some() { return; }
+        if self.loading.get(url).is_some() {
+            // We're already trying to load it
+            return;
+        } else if self.sounds.get(url).is_some() {
+            // Was loaded previously, ignore
+            console::log("Sound already loaded");
+            return;
+        }
+        console::log(format!("Loading sound: {}", url));
 
         let sound_queue = self.tx.clone();
         self.loading.insert(url.into());

@@ -5,7 +5,8 @@ use specs::prelude::*;
 
 use crate::{
     components::{
-        CombatStats, Item, Monster, Player, Position, Viewshed, WantsToMelee, WantsToPickupItem,
+        CombatStats, HungerClock, HungerState, Item, Monster, Player, Position, Viewshed,
+        WantsToMelee, WantsToPickupItem,
     },
     gamelog::GameLog,
     map::Map,
@@ -103,15 +104,28 @@ fn skip_turn(ecs: &mut World) -> RunState {
     let worldmap_resource = ecs.fetch::<Map>();
 
     let mut can_heal = true;
-    let viewshed = viewshed_components.get(*player_entity).unwrap();
-    for tile in viewshed.visible_tiles.iter() {
-        let idx = worldmap_resource.xy_idx(tile.x, tile.y);
-        for entity_id in worldmap_resource.tile_content[idx].iter() {
-            let mob = monsters.get(*entity_id);
-            match mob {
-                None => {}
-                Some(_) => {
-                    can_heal = false;
+
+    let hunger_clocks = ecs.read_storage::<HungerClock>();
+    let hc = hunger_clocks.get(*player_entity);
+    if let Some(hc) = hc {
+        match hc.state {
+            HungerState::Hungry | HungerState::Starving => can_heal = false,
+            _ => {}
+        }
+    }
+
+    if can_heal {
+        // Optimize away if too hungry
+        let viewshed = viewshed_components.get(*player_entity).unwrap();
+        for tile in viewshed.visible_tiles.iter() {
+            let idx = worldmap_resource.xy_idx(tile.x, tile.y);
+            for entity_id in worldmap_resource.tile_content[idx].iter() {
+                let mob = monsters.get(*entity_id);
+                match mob {
+                    None => {}
+                    Some(_) => {
+                        can_heal = false;
+                    }
                 }
             }
         }

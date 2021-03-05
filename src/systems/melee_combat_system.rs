@@ -1,7 +1,10 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::components::{CombatStats, DefenceBonus, Equipped, GivenName, MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee, named};
+use crate::components::{
+    named, CombatStats, DefenceBonus, Equipped, GivenName, HungerClock, HungerState,
+    MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee,
+};
 use crate::gamelog::GameLog;
 
 use super::ParticleBuilder;
@@ -22,6 +25,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
         ReadStorage<'a, DefenceBonus>,
         WriteExpect<'a, ParticleBuilder>,
         ReadStorage<'a, Position>,
+        ReadStorage<'a, HungerClock>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -37,7 +41,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
             melee_power_bonuses,
             defence_bonuses,
             mut particle_builder,
-            positions
+            positions,
+            hunger_clock,
         ) = data;
 
         for (entity, wants_melee, name, stats) in
@@ -70,7 +75,20 @@ impl<'a> System<'a> for MeleeCombatSystem {
                         }
                     }
                     if let Some(pos) = positions.get(wants_melee.target) {
-                        particle_builder.request(pos.x, pos.y, RGB::named(ORANGE), RGB::named(BLACK), to_cp437('‼'), 200.0);
+                        particle_builder.request(
+                            pos.x,
+                            pos.y,
+                            RGB::named(ORANGE),
+                            RGB::named(BLACK),
+                            to_cp437('‼'),
+                            200.0,
+                        );
+                    }
+
+                    if let Some(hc) = hunger_clock.get(entity) {
+                        if hc.state == HungerState::WellFed {
+                            offensive_bonus += 1;
+                        }
                     }
 
                     let damage = i32::max(
