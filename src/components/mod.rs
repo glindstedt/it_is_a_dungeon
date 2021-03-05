@@ -13,6 +13,8 @@ mod intent;
 pub use helpers::*;
 pub use intent::*;
 
+use crate::audio::Music;
+
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct Position {
     pub x: i32,
@@ -47,8 +49,17 @@ pub struct GivenName {
     pub name: String,
 }
 
-#[derive(Component, Serialize, Deserialize, Debug, Clone)]
-pub struct Monster {}
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize, Debug)]
+pub enum MonsterType {
+    Orc,
+    Goblin,
+}
+
+#[derive(Component, ConvertSaveload, Debug, Clone)]
+pub struct Monster {
+    pub monster_type: MonsterType,
+    pub seen_player: bool,
+}
 
 #[derive(Component, Serialize, Deserialize, Debug, Clone)]
 pub struct BlocksTile {}
@@ -132,9 +143,16 @@ pub struct Equipped {
     pub slot: EquipmentSlot,
 }
 
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
+pub enum MeleeType {
+    Blunt,
+    Slash,
+}
+
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct MeleePowerBonus {
     pub power: i32,
+    pub melee_type: MeleeType,
 }
 
 #[derive(Component, ConvertSaveload, Debug, Clone)]

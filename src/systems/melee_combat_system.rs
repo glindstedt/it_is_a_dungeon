@@ -2,7 +2,6 @@ use bracket_lib::prelude::*;
 use kira::instance::InstanceSettings;
 use specs::prelude::*;
 
-use crate::gamelog::GameLog;
 use crate::{
     audio::SoundResource,
     components::{
@@ -10,6 +9,7 @@ use crate::{
         MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee,
     },
 };
+use crate::{components::MeleeType, gamelog::GameLog};
 
 use super::ParticleBuilder;
 
@@ -53,6 +53,7 @@ impl<'a> System<'a> for MeleeCombatSystem {
             mut rng,
         ) = data;
 
+        let mut melee_type = MeleeType::Blunt;
         let mut melee_was_had = false;
         for (entity, wants_melee, name, stats) in
             (&entities, &wants_melee, &names, &combat_stats).join()
@@ -65,7 +66,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
                     (&entities, &melee_power_bonuses, &equipped).join()
                 {
                     if equipped_by.owner == entity {
-                        offensive_bonus += power_bonus.power
+                        offensive_bonus += power_bonus.power;
+                        melee_type = power_bonus.melee_type;
                     }
                 }
 
@@ -129,7 +131,10 @@ impl<'a> System<'a> for MeleeCombatSystem {
 
         // TODO make sound effect system instead
         if melee_was_had {
-            match sounds.play_sound(melee_sound(&mut rng), InstanceSettings::default()) {
+            match sounds.play_sound(
+                melee_sound(&mut rng, melee_type),
+                InstanceSettings::default(),
+            ) {
                 Ok(_) => {}
                 Err(e) => console::log(format!("Unable to play sound: {}", e)),
             }
@@ -139,13 +144,21 @@ impl<'a> System<'a> for MeleeCombatSystem {
     }
 }
 
-fn melee_sound(rng: &mut RandomNumberGenerator) -> &str {
+fn melee_sound(rng: &mut RandomNumberGenerator, melee_type: MeleeType) -> &str {
     let roll = rng.roll_dice(1, 3);
 
-    match roll {
-        1 => "assets/audio/punch_1.ogg",
-        2 => "assets/audio/punch_2.ogg",
-        3 => "assets/audio/punch_3.ogg",
-        _ => "assets/audio/punch_1.ogg",
+    match melee_type {
+        MeleeType::Blunt => match roll {
+            1 => "assets/audio/punch_1.ogg",
+            2 => "assets/audio/punch_2.ogg",
+            3 => "assets/audio/punch_3.ogg",
+            _ => "assets/audio/punch_1.ogg",
+        },
+        MeleeType::Slash => match roll {
+            1 => "assets/audio/blade_1.ogg",
+            2 => "assets/audio/blade_2.ogg",
+            3 => "assets/audio/blade_3.ogg",
+            _ => "assets/audio/blade_1.ogg",
+        },
     }
 }

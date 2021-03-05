@@ -620,11 +620,11 @@ pub fn game_over(ctx: &mut BTerm) -> GameOverResult {
         20,
         RGB::named(MAGENTA),
         RGB::named(BLACK),
-        "Press any key to return to the menu.",
+        "Press Escape to return to the menu.",
     );
 
     match ctx.key {
-        None => GameOverResult::NoSelection,
-        Some(_) => GameOverResult::QuitToMenu,
+        Some(VirtualKeyCode::Escape) => GameOverResult::QuitToMenu,
+        _ => GameOverResult::NoSelection,
     }
 }

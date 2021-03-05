@@ -1,7 +1,8 @@
 use bracket_lib::prelude::*;
+use kira::instance::InstanceSettings;
 use specs::prelude::*;
 
-use crate::{components::{EntityMoved, EntryTrigger, GivenName, Hidden, InflictsDamage, Name, Position, SingleActivation, SufferDamage, named}, gamelog::GameLog, map::Map};
+use crate::{audio::SoundResource, components::{EntityMoved, EntryTrigger, GivenName, Hidden, InflictsDamage, Name, Position, SingleActivation, SufferDamage, named}, gamelog::GameLog, map::Map};
 
 use super::ParticleBuilder;
 
@@ -22,10 +23,12 @@ impl<'a> System<'a> for TriggerSystem {
         ReadStorage<'a, SingleActivation>,
         Entities<'a>,
         WriteExpect<'a, GameLog>,
+        WriteExpect<'a, SoundResource>,
+        WriteExpect<'a, RandomNumberGenerator>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (map, mut entity_moved, position, entry_trigger, mut hidden, names, given_names, inflicts_damage, mut suffer_damage, mut particle_builder, single_activation, entities, mut log) =
+        let (map, mut entity_moved, position, entry_trigger, mut hidden, names, given_names, inflicts_damage, mut suffer_damage, mut particle_builder, single_activation, entities, mut log, mut sounds, mut rng) =
             data;
 
         let mut remove_entities: Vec<Entity> = Vec::new();
@@ -46,6 +49,14 @@ impl<'a> System<'a> for TriggerSystem {
 
                             let fool_title = named(names.get(entity), given_names.get(*entity_id));
                             log.entries.push(format!("{} suffers {} damage.", fool_title, damage.damage));
+
+                            match sounds.play_sound(
+                                trap_sound(&mut rng),
+                                InstanceSettings::default(),
+                            ) {
+                                Ok(_) => {}
+                                Err(e) => console::log(format!("Unable to play sound: {}", e)),
+                            }
                         }
 
                         if single_activation.get(*entity_id).is_some() {
@@ -64,5 +75,14 @@ impl<'a> System<'a> for TriggerSystem {
 
         // Remove all entity movement markers
         entity_moved.clear();
+    }
+}
+
+fn trap_sound(rng: &mut RandomNumberGenerator) -> &str {
+    let roll = rng.roll_dice(1, 2);
+    match roll {
+        1 => "assets/audio/splat_1.ogg",
+        2 => "assets/audio/splat_2.ogg",
+        _ => "assets/audio/splat_1.ogg",
     }
 }

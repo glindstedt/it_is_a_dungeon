@@ -7,3 +7,5 @@ wasm:
 	wasm-bindgen target/wasm32-unknown-unknown/release/roguelike_tutorial.wasm --out-dir wasm --no-modules --no-typescript
 	cp -r static/* wasm/
 	cp -r assets wasm/
+	# Ignore .wav files, only .ogg are used in game
+	find wasm/ -name "*.wav" -delete

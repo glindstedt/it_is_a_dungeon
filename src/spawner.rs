@@ -6,15 +6,15 @@ use specs::{
     saveload::{MarkedBuilder, SimpleMarker},
 };
 
-use crate::{components::{AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenceBonus, EntryTrigger, Equipable, EquipmentSlot, GivenName, Hidden, HungerClock, HungerState, InflictsDamage, Item, MagicMapper, MeleePowerBonus, Monster, Name, Player, Position, ProvidesFood, ProvidesHealing, Ranged, Renderable, SerializeMe, SingleActivation, Viewshed}, random_table::RandomTable};
+use crate::{components::{AreaOfEffect, BlocksTile, CombatStats, Confusion, Consumable, DefenceBonus, EntryTrigger, Equipable, EquipmentSlot, GivenName, Hidden, HungerClock, HungerState, InflictsDamage, Item, MagicMapper, MeleePowerBonus, MeleeType, Monster, MonsterType, Name, Player, Position, ProvidesFood, ProvidesHealing, Ranged, Renderable, SerializeMe, SingleActivation, Viewshed}, random_table::RandomTable};
 
 const MAX_MONSTERS: i32 = 4;
 
 pub fn orc(ecs: &mut World, x: i32, y: i32, given_name: &str) {
-    monster(ecs, x, y, to_cp437('o'), "Orc", given_name);
+    monster(ecs, x, y, to_cp437('o'), "Orc", given_name, MonsterType::Orc);
 }
 pub fn goblin(ecs: &mut World, x: i32, y: i32, given_name: &str) {
-    monster(ecs, x, y, to_cp437('g'), "Goblin", given_name);
+    monster(ecs, x, y, to_cp437('g'), "Goblin", given_name, MonsterType::Goblin);
 }
 
 fn monster<S: ToString>(
@@ -24,6 +24,7 @@ fn monster<S: ToString>(
     glyph: FontCharType,
     name: S,
     given_name: S,
+    monster_type: MonsterType,
 ) {
     ecs.create_entity()
         .marked::<SimpleMarker<SerializeMe>>()
@@ -39,7 +40,7 @@ fn monster<S: ToString>(
             range: 8,
             dirty: true,
         })
-        .with(Monster {})
+        .with(Monster { monster_type, seen_player: false })
         .with(Name {
             name: name.to_string(),
         })
@@ -206,7 +207,7 @@ pub fn dagger(ecs: &mut World, x: i32, y: i32) {
         .with(Equipable {
             slot: EquipmentSlot::Melee,
         })
-        .with(MeleePowerBonus { power: 2 })
+        .with(MeleePowerBonus { power: 2, melee_type: MeleeType::Slash })
         .marked::<SimpleMarker<SerializeMe>>()
         .build();
 }
@@ -227,7 +228,7 @@ pub fn longsword(ecs: &mut World, x: i32, y: i32) {
         .with(Equipable {
             slot: EquipmentSlot::Melee,
         })
-        .with(MeleePowerBonus { power: 4 })
+        .with(MeleePowerBonus { power: 4, melee_type: MeleeType::Slash })
         .marked::<SimpleMarker<SerializeMe>>()
         .build();
 }

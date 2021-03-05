@@ -1,4 +1,4 @@
-use audio::SoundResource;
+use audio::{DesireMusic, Music, SoundResource};
 use bracket_lib::prelude::*;
 use gui::MainMenuSelection;
 use kira::{
@@ -111,6 +111,11 @@ impl State {
         hunger.run_now(&self.ecs);
 
         self.ecs.maintain();
+    }
+
+    fn run_meta_systems(&mut self) {
+        let mut music = MusicSystem {};
+        music.run_now(&self.ecs);
     }
 
     fn entities_to_remove_on_level_change(&mut self) -> Vec<Entity> {
@@ -293,6 +298,7 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         ctx.cls();
         cull_dead_particles(&mut self.ecs, ctx);
+        self.run_meta_systems();
 
         let mut new_runstate = {
             let runstate = self.ecs.fetch::<RunState>();
@@ -314,9 +320,7 @@ impl GameState for State {
 
                 // Render monsters and objects
                 if debug.reveal_hidden {
-                    let mut data = (&positions, &renderables)
-                        .join()
-                        .collect::<Vec<_>>();
+                    let mut data = (&positions, &renderables).join().collect::<Vec<_>>();
                     data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
                     for (pos, render) in data.iter() {
                         let idx = map.xy_idx(pos.x, pos.y);
@@ -366,6 +370,8 @@ impl GameState for State {
                             // Stop audio loop
                             let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
                             sound_resource.stop_all_sounds();
+                            let mut desire_music = self.ecs.fetch_mut::<DesireMusic>();
+                            desire_music.stop = true;
                         }
                         self.game_over_cleanup();
                         new_runstate = RunState::MainMenu {
@@ -546,12 +552,18 @@ impl GameState for State {
                 let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
 
                 // Load audio from assets if not done previously
+                sound_resource.load_music();
                 for url in vec![
-                    "assets/audio/gr1.ogg",
-                    "assets/audio/roguelike_abyss.ogg",
                     "assets/audio/punch_1.ogg",
                     "assets/audio/punch_2.ogg",
                     "assets/audio/punch_3.ogg",
+                    "assets/audio/blade_1.ogg",
+                    "assets/audio/blade_2.ogg",
+                    "assets/audio/blade_3.ogg",
+                    "assets/audio/splat_1.ogg",
+                    "assets/audio/splat_2.ogg",
+                    "assets/audio/orc_1.ogg",
+                    "assets/audio/goblin_1.ogg",
                 ] {
                     sound_resource.load_audio(url);
                 }
@@ -571,16 +583,8 @@ impl GameState for State {
                 } else {
                     bracket_lib::terminal::console::log("Loaded!");
 
-                    // Start audio loop
-                    // let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
-                    // TODO handle error
-                    sound_resource
-                        .play_sound(
-                            // "assets/audio/gr1.ogg",
-                            "assets/audio/roguelike_abyss.ogg",
-                            InstanceSettings::default().loop_start(0f64),
-                        )
-                        .unwrap();
+                    let mut desire_music = self.ecs.fetch_mut::<DesireMusic>();
+                    desire_music.music = Some(Music::Abyss);
 
                     new_runstate = RunState::PreRun;
                 }
@@ -671,6 +675,10 @@ fn main() -> BError {
         AudioManager::new(AudioManagerSettings::default()).expect("Unable to initialize audio");
     state.ecs.insert(audio_manager);
     state.ecs.insert(SoundResource::default());
+    state.ecs.insert(DesireMusic {
+        music: None,
+        stop: false,
+    });
     state.ecs.insert(ParticleBuilder::default());
     state.ecs.insert(DebugOptions::default());
 

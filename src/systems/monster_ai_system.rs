@@ -1,11 +1,8 @@
 use bracket_lib::prelude::*;
+use kira::instance::InstanceSettings;
 use specs::prelude::*;
 
-use crate::{
-    components::{Confusion, EntityMoved, Monster, Position, Viewshed, WantsToMelee},
-    map::Map,
-    RunState,
-};
+use crate::{RunState, audio::SoundResource, components::{Confusion, EntityMoved, Monster, MonsterType, Position, Viewshed, WantsToMelee}, map::Map};
 
 use super::ParticleBuilder;
 
@@ -20,12 +17,14 @@ impl<'a> System<'a> for MonsterAI {
         ReadExpect<'a, RunState>,
         Entities<'a>,
         WriteStorage<'a, Viewshed>,
-        ReadStorage<'a, Monster>,
+        WriteStorage<'a, Monster>,
         WriteStorage<'a, Position>,
         WriteStorage<'a, WantsToMelee>,
         WriteStorage<'a, Confusion>,
         WriteExpect<'a, ParticleBuilder>,
         WriteStorage<'a, EntityMoved>,
+        WriteExpect<'a, SoundResource>,
+        WriteExpect<'a, RandomNumberGenerator>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -36,20 +35,22 @@ impl<'a> System<'a> for MonsterAI {
             runstate,
             entities,
             mut viewshed,
-            monster,
+            mut monster,
             mut position,
             mut wants_to_melee,
             mut confused,
             mut particle_builder,
             mut entity_moved,
+            mut sounds,
+            mut rng,
         ) = data;
 
         if *runstate != RunState::MonsterTurn {
             return;
         }
 
-        for (entity, mut viewshed, _monster, mut pos) in
-            (&entities, &mut viewshed, &monster, &mut position).join()
+        for (entity, mut viewshed, mut monster, mut pos) in
+            (&entities, &mut viewshed, &mut monster, &mut position).join()
         {
             let mut can_act = true;
 
@@ -102,8 +103,27 @@ impl<'a> System<'a> for MonsterAI {
                             .insert(entity, EntityMoved {})
                             .expect("Unable to insert marker");
                     }
+
+                    if !monster.seen_player {
+                        monster.seen_player = true;
+                        match sounds.play_sound(
+                            monster_noise(&mut rng, monster.monster_type),
+                            InstanceSettings::default(),
+                        ) {
+                            Ok(_) => {}
+                            Err(e) => console::log(format!("Unable to play sound: {}", e)),
+                        }
+                    }
                 }
             }
         }
+    }
+}
+
+fn monster_noise(rng: &mut RandomNumberGenerator, monster_type: MonsterType) -> &str {
+    // TODO more noises
+    match monster_type {
+        MonsterType::Orc => "assets/audio/orc_1.ogg",
+        MonsterType::Goblin => "assets/audio/goblin_1.ogg",
     }
 }
