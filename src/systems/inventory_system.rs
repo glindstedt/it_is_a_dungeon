@@ -155,13 +155,15 @@ impl<'a> System<'a> for ItemUseSystem {
                     .entries
                     .push("The map is revealed to you!".to_string());
                 let animation = entities.create();
-                animations.insert(
-                    animation,
-                    Animation {
-                        duration_ms: 1000.0,
-                        elapsed_ms: 0.,
-                    },
-                ).unwrap();
+                animations
+                    .insert(
+                        animation,
+                        Animation {
+                            duration_ms: 1000.0,
+                            elapsed_ms: 0.,
+                        },
+                    )
+                    .unwrap();
                 *runstate = RunState::MagicMapReveal { row: 0, animation };
             }
 

@@ -173,6 +173,18 @@ pub struct Animation {
     pub elapsed_ms: f32,
 }
 
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct Hidden {}
+
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct EntryTrigger {}
+
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct EntityMoved {}
+
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct SingleActivation {}
+
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct SerializationHelper {
     pub map: crate::map::Map,

@@ -1,8 +1,7 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use crate::{components::InBackpack, console};
-use crate::{components::Viewshed, gamelog::GameLog};
+use crate::{DebugOptions, components::Viewshed, gamelog::GameLog};
 use crate::{
     components::{CombatStats, HungerClock, HungerState, Name, Player, Position},
     RunState, State,
@@ -10,6 +9,10 @@ use crate::{
 use crate::{
     components::{Equipped, GivenName},
     map::{Map, TileType},
+};
+use crate::{
+    components::{Hidden, InBackpack},
+    console,
 };
 
 #[derive(PartialEq, Copy, Clone)]
@@ -26,7 +29,7 @@ pub enum MainMenuResult {
 }
 
 pub fn main_menu(gs: &mut State, ctx: &mut BTerm) -> MainMenuResult {
-    let save_exists = crate::systems::does_save_exist();
+    let save_exists = crate::saveload::does_save_exist();
     let runstate = gs.ecs.fetch::<RunState>();
 
     ctx.print_color_centered(15, RGB::named(YELLOW), RGB::named(BLACK), "It is a dungeon");
@@ -171,11 +174,13 @@ pub fn draw_ui(ecs: &World, ctx: &mut BTerm) {
 pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
     let ttfg = RGB::named(WHITE);
     let ttbg = RGB::named(BLUE);
+    let debug = ecs.fetch::<DebugOptions>();
     let map = ecs.fetch::<Map>();
     let entities = ecs.entities();
     let names = ecs.read_storage::<Name>();
     let given_names = ecs.read_storage::<GivenName>();
     let positions = ecs.read_storage::<Position>();
+    let hidden = ecs.read_storage::<Hidden>();
 
     let mouse_pos = ctx.mouse_pos();
     if mouse_pos.0 >= map.width || mouse_pos.1 >= map.height {
@@ -183,11 +188,11 @@ pub fn draw_tooltips(ecs: &World, ctx: &mut BTerm) {
     }
 
     let mut tooltip: Vec<String> = Vec::new();
-    for (entity, name, position) in (&entities, &names, &positions).join() {
+    for (entity, name, position, _hidden) in (&entities, &names, &positions, !&hidden).join() {
         let idx = map.xy_idx(position.x, position.y);
         if position.x == mouse_pos.0
             && position.y == mouse_pos.1
-            && (map.visible_tiles[idx] || map.fog_off)
+            && (debug.fog_off || map.visible_tiles[idx])
         {
             if let Some(gn) = given_names.get(entity) {
                 tooltip.push(format!("{}, {}", name.name, gn.name));

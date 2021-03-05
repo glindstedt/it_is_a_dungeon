@@ -1,11 +1,15 @@
 use bracket_lib::prelude::*;
+use kira::instance::InstanceSettings;
 use specs::prelude::*;
 
-use crate::components::{
-    named, CombatStats, DefenceBonus, Equipped, GivenName, HungerClock, HungerState,
-    MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee,
-};
 use crate::gamelog::GameLog;
+use crate::{
+    audio::SoundResource,
+    components::{
+        named, CombatStats, DefenceBonus, Equipped, GivenName, HungerClock, HungerState,
+        MeleePowerBonus, Name, Position, SufferDamage, WantsToMelee,
+    },
+};
 
 use super::ParticleBuilder;
 
@@ -26,6 +30,8 @@ impl<'a> System<'a> for MeleeCombatSystem {
         WriteExpect<'a, ParticleBuilder>,
         ReadStorage<'a, Position>,
         ReadStorage<'a, HungerClock>,
+        WriteExpect<'a, SoundResource>,
+        WriteExpect<'a, RandomNumberGenerator>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -43,8 +49,11 @@ impl<'a> System<'a> for MeleeCombatSystem {
             mut particle_builder,
             positions,
             hunger_clock,
+            mut sounds,
+            mut rng,
         ) = data;
 
+        let mut melee_was_had = false;
         for (entity, wants_melee, name, stats) in
             (&entities, &wants_melee, &names, &combat_stats).join()
         {
@@ -111,12 +120,32 @@ impl<'a> System<'a> for MeleeCombatSystem {
                             target_stats.defence,
                             defensive_bonus
                         ));
+                        melee_was_had = true;
                         SufferDamage::new_damage(&mut inflict_damage, wants_melee.target, damage);
                     }
                 }
             }
         }
 
+        // TODO make sound effect system instead
+        if melee_was_had {
+            match sounds.play_sound(melee_sound(&mut rng), InstanceSettings::default()) {
+                Ok(_) => {}
+                Err(e) => console::log(format!("Unable to play sound: {}", e)),
+            }
+        }
+
         wants_melee.clear();
+    }
+}
+
+fn melee_sound(rng: &mut RandomNumberGenerator) -> &str {
+    let roll = rng.roll_dice(1, 3);
+
+    match roll {
+        1 => "assets/audio/punch_1.ogg",
+        2 => "assets/audio/punch_2.ogg",
+        3 => "assets/audio/punch_3.ogg",
+        _ => "assets/audio/punch_1.ogg",
     }
 }

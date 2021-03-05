@@ -5,8 +5,8 @@ use specs::prelude::*;
 
 use crate::{
     components::{
-        CombatStats, HungerClock, HungerState, Item, Monster, Player, Position, Viewshed,
-        WantsToMelee, WantsToPickupItem,
+        CombatStats, EntityMoved, HungerClock, HungerState, Item, Monster, Player, Position,
+        Viewshed, WantsToMelee, WantsToPickupItem,
     },
     gamelog::GameLog,
     map::Map,
@@ -17,6 +17,7 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
     let mut positions = ecs.write_storage::<Position>();
     let mut players = ecs.write_storage::<Player>();
     let mut viewsheds = ecs.write_storage::<Viewshed>();
+    let mut entity_moved = ecs.write_storage::<EntityMoved>();
     let combat_stats = ecs.read_storage::<CombatStats>();
     let map = ecs.fetch::<Map>();
     let entities = ecs.entities();
@@ -58,6 +59,9 @@ fn try_move_player(delta_x: i32, delta_y: i32, ecs: &mut World) {
             ppos.y = pos.y;
 
             viewshed.dirty = true;
+            entity_moved
+                .insert(entity, EntityMoved {})
+                .expect("Unable to insert marker");
         }
     }
 }

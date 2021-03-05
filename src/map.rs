@@ -7,7 +7,7 @@ use bracket_lib::prelude::*;
 use serde::{Deserialize, Serialize};
 use specs::prelude::*;
 
-use crate::{gamelog::GameLog, rect::Rect};
+use crate::{DebugOptions, gamelog::GameLog, rect::Rect};
 
 pub const MAPWIDTH: usize = 80;
 pub const MAPHEIGHT: usize = 43;
@@ -35,9 +35,6 @@ pub struct Map {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     pub tile_content: Vec<Vec<Entity>>,
-
-    // Debug opts
-    pub fog_off: bool,
 }
 
 impl BaseMap for Map {
@@ -159,7 +156,6 @@ impl Map {
             blocked: vec![false; MAPCOUNT],
             tile_content: vec![Vec::new(); MAPCOUNT],
             depth: new_depth,
-            fog_off: false,
             ..Default::default()
         };
 
@@ -258,6 +254,7 @@ fn wall_glyph(map: &Map, x: i32, y: i32) -> FontCharType {
 }
 
 pub fn draw_map(ecs: &World, ctx: &mut BTerm) {
+    let debug = ecs.fetch::<DebugOptions>();
     let map = ecs.fetch::<Map>();
 
     let mut y = 0;
@@ -265,7 +262,7 @@ pub fn draw_map(ecs: &World, ctx: &mut BTerm) {
 
     for (idx, tile) in map.tiles.iter().enumerate() {
         // Render a tile depending on type
-        if map.fog_off || map.revealed_tiles[idx] {
+        if debug.fog_off || map.revealed_tiles[idx] {
             let glyph;
             let mut fg;
             let mut bg = RGB::from_f32(0., 0., 0.);

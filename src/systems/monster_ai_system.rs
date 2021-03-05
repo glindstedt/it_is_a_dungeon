@@ -2,7 +2,7 @@ use bracket_lib::prelude::*;
 use specs::prelude::*;
 
 use crate::{
-    components::{Confusion, Monster, Position, Viewshed, WantsToMelee},
+    components::{Confusion, EntityMoved, Monster, Position, Viewshed, WantsToMelee},
     map::Map,
     RunState,
 };
@@ -25,6 +25,7 @@ impl<'a> System<'a> for MonsterAI {
         WriteStorage<'a, WantsToMelee>,
         WriteStorage<'a, Confusion>,
         WriteExpect<'a, ParticleBuilder>,
+        WriteStorage<'a, EntityMoved>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
@@ -40,6 +41,7 @@ impl<'a> System<'a> for MonsterAI {
             mut wants_to_melee,
             mut confused,
             mut particle_builder,
+            mut entity_moved,
         ) = data;
 
         if *runstate != RunState::MonsterTurn {
@@ -96,6 +98,9 @@ impl<'a> System<'a> for MonsterAI {
                         idx = map.xy_idx(pos.x, pos.y);
                         map.blocked[idx] = true;
                         viewshed.dirty = true;
+                        entity_moved
+                            .insert(entity, EntityMoved {})
+                            .expect("Unable to insert marker");
                     }
                 }
             }

@@ -4,7 +4,7 @@ use bracket_lib::prelude::*;
 use specs::WorldExt;
 use thiserror::Error;
 
-use crate::{map::Map, spawner, RunState, State};
+use crate::{map::Map, spawner, DebugOptions, RunState, State};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Line {
@@ -181,8 +181,12 @@ fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
                 spawn_commands(gs, &parts[1..])?;
             }
             "fog" => {
-                let mut map = gs.ecs.fetch_mut::<Map>();
-                map.fog_off = !map.fog_off;
+                let mut debug = gs.ecs.fetch_mut::<DebugOptions>();
+                debug.fog_off = !debug.fog_off;
+            }
+            "reveal" => {
+                let mut debug = gs.ecs.fetch_mut::<DebugOptions>();
+                debug.reveal_hidden = !debug.reveal_hidden;
             }
             "descend" => {
                 let mut console = gs.ecs.fetch_mut::<Console>();
@@ -203,6 +207,9 @@ fn execute(gs: &mut State, input: &str) -> Result<RunState, ConsoleError> {
                 console
                     .history
                     .push(Output("fog                      - toggle map fog".into()));
+                console
+                    .history
+                    .push(Output("reveal                   - toggle reveal hidden".into()));
                 console
                     .history
                     .push(Output("spawn potion             - spawn potion".into()));

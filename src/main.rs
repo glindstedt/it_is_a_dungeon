@@ -21,6 +21,7 @@ mod map;
 mod player;
 mod random_table;
 mod rect;
+mod saveload;
 mod spawner;
 mod systems;
 
@@ -65,6 +66,12 @@ pub struct State {
     ecs: World,
 }
 
+#[derive(Default)]
+pub struct DebugOptions {
+    reveal_hidden: bool,
+    fog_off: bool,
+}
+
 impl State {
     fn run_systems(&mut self) {
         let mut vis = VisibilitySystem {};
@@ -72,6 +79,9 @@ impl State {
 
         let mut mob = MonsterAI {};
         mob.run_now(&self.ecs);
+
+        let mut trigger = TriggerSystem {};
+        trigger.run_now(&self.ecs);
 
         let mut mapindex = MapIndexingSystem {};
         mapindex.run_now(&self.ecs);
@@ -274,7 +284,7 @@ impl State {
         self.ecs.insert(player_entity);
         self.ecs.insert(map);
         self.ecs.insert(gamelog::GameLog {
-            entries: vec!["Welcome to the deep".to_string()],
+            entries: vec!["Welcome to the depths".to_string()],
         });
     }
 }
@@ -298,15 +308,32 @@ impl GameState for State {
 
                 let positions = self.ecs.read_storage::<Position>();
                 let renderables = self.ecs.read_storage::<Renderable>();
+                let hidden = self.ecs.read_storage::<Hidden>();
+                let debug = self.ecs.fetch::<DebugOptions>();
                 let map = self.ecs.fetch::<Map>();
 
                 // Render monsters and objects
-                let mut data = (&positions, &renderables).join().collect::<Vec<_>>();
-                data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
-                for (pos, render) in data.iter() {
-                    let idx = map.xy_idx(pos.x, pos.y);
-                    if map.fog_off || map.visible_tiles[idx] {
-                        ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+                if debug.reveal_hidden {
+                    let mut data = (&positions, &renderables)
+                        .join()
+                        .collect::<Vec<_>>();
+                    data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
+                    for (pos, render) in data.iter() {
+                        let idx = map.xy_idx(pos.x, pos.y);
+                        if debug.fog_off || map.visible_tiles[idx] {
+                            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+                        }
+                    }
+                } else {
+                    let mut data = (&positions, &renderables, !&hidden)
+                        .join()
+                        .collect::<Vec<_>>();
+                    data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order));
+                    for (pos, render, _hidden) in data.iter() {
+                        let idx = map.xy_idx(pos.x, pos.y);
+                        if debug.fog_off || map.visible_tiles[idx] {
+                            ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
+                        }
                     }
                 }
 
@@ -500,12 +527,12 @@ impl GameState for State {
                             new_runstate = RunState::PreLoading
                         }
                         gui::MainMenuSelection::LoadGame => {
-                            match systems::load_game(&mut self.ecs) {
+                            match saveload::load_game(&mut self.ecs) {
                                 Ok(_) => {}
                                 Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                             }
                             new_runstate = RunState::PreLoading;
-                            match systems::delete_save() {
+                            match saveload::delete_save() {
                                 Ok(_) => {}
                                 Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                             }
@@ -519,8 +546,15 @@ impl GameState for State {
                 let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
 
                 // Load audio from assets if not done previously
-                let url = "assets/audio/gr1.ogg";
-                sound_resource.load_audio(url);
+                for url in vec![
+                    "assets/audio/gr1.ogg",
+                    "assets/audio/roguelike_abyss.ogg",
+                    "assets/audio/punch_1.ogg",
+                    "assets/audio/punch_2.ogg",
+                    "assets/audio/punch_3.ogg",
+                ] {
+                    sound_resource.load_audio(url);
+                }
 
                 new_runstate = RunState::Loading;
             }
@@ -542,7 +576,8 @@ impl GameState for State {
                     // TODO handle error
                     sound_resource
                         .play_sound(
-                            "assets/audio/gr1.ogg",
+                            // "assets/audio/gr1.ogg",
+                            "assets/audio/roguelike_abyss.ogg",
                             InstanceSettings::default().loop_start(0f64),
                         )
                         .unwrap();
@@ -551,7 +586,7 @@ impl GameState for State {
                 }
             }
             RunState::SaveGame => {
-                match systems::save_game(&mut self.ecs) {
+                match saveload::save_game(&mut self.ecs) {
                     Ok(_) => {}
                     Err(e) => bracket_lib::terminal::console::log(format!("{:?}", e)),
                 }
@@ -616,6 +651,10 @@ fn main() -> BError {
     state.ecs.register::<ProvidesFood>();
     state.ecs.register::<MagicMapper>();
     state.ecs.register::<Animation>();
+    state.ecs.register::<Hidden>();
+    state.ecs.register::<EntryTrigger>();
+    state.ecs.register::<EntityMoved>();
+    state.ecs.register::<SingleActivation>();
     state.ecs.register::<SerializationHelper>();
 
     // Resources
@@ -633,6 +672,7 @@ fn main() -> BError {
     state.ecs.insert(audio_manager);
     state.ecs.insert(SoundResource::default());
     state.ecs.insert(ParticleBuilder::default());
+    state.ecs.insert(DebugOptions::default());
 
     state.new_game();
 
