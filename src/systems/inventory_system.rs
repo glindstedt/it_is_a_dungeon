@@ -3,12 +3,14 @@ use specs::prelude::*;
 
 use crate::{
     components::{
-        named, AreaOfEffect, CombatStats, Confusion, Consumable, Equipable, Equipped, GivenName,
-        HungerClock, HungerState, InBackpack, InflictsDamage, Name, Position, ProvidesFood,
-        ProvidesHealing, SufferDamage, WantsToDropItem, WantsToRemoveItem, WantsToUseItem,
+        named, Animation, AreaOfEffect, CombatStats, Confusion, Consumable, Equipable, Equipped,
+        GivenName, HungerClock, HungerState, InBackpack, InflictsDamage, MagicMapper, Name,
+        Position, ProvidesFood, ProvidesHealing, SufferDamage, WantsToDropItem, WantsToRemoveItem,
+        WantsToUseItem,
     },
     gamelog::GameLog,
     map::Map,
+    RunState,
 };
 
 use super::ParticleBuilder;
@@ -18,7 +20,8 @@ impl<'a> System<'a> for ItemUseSystem {
     type SystemData = (
         ReadExpect<'a, Entity>,
         WriteExpect<'a, GameLog>,
-        ReadExpect<'a, Map>,
+        WriteExpect<'a, Map>,
+        WriteExpect<'a, RunState>,
         Entities<'a>,
         WriteStorage<'a, WantsToUseItem>,
         ReadStorage<'a, Name>,
@@ -37,13 +40,16 @@ impl<'a> System<'a> for ItemUseSystem {
         ReadStorage<'a, Position>,
         ReadStorage<'a, ProvidesFood>,
         WriteStorage<'a, HungerClock>,
+        ReadStorage<'a, MagicMapper>,
+        WriteStorage<'a, Animation>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
         let (
             player_entity,
             mut gamelog,
-            map,
+            mut map,
+            mut runstate,
             entities,
             mut wants_drink,
             names,
@@ -62,6 +68,8 @@ impl<'a> System<'a> for ItemUseSystem {
             positions,
             provides_food,
             mut hunger_clocks,
+            magic_mapper,
+            mut animations,
         ) = data;
 
         for (entity, useitem) in (&entities, &wants_drink).join() {
@@ -140,6 +148,21 @@ impl<'a> System<'a> for ItemUseSystem {
                         names.get(useitem.item).unwrap().name,
                     ));
                 }
+            }
+
+            if magic_mapper.get(useitem.item).is_some() {
+                gamelog
+                    .entries
+                    .push("The map is revealed to you!".to_string());
+                let animation = entities.create();
+                animations.insert(
+                    animation,
+                    Animation {
+                        duration_ms: 1000.0,
+                        elapsed_ms: 0.,
+                    },
+                ).unwrap();
+                *runstate = RunState::MagicMapReveal { row: 0, animation };
             }
 
             if let Some(damage) = inflict_damage.get(useitem.item) {

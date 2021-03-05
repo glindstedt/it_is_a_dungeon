@@ -47,6 +47,10 @@ pub enum RunState {
         range: i32,
         item: Entity,
     },
+    MagicMapReveal {
+        row: i32,
+        animation: Entity,
+    },
     MainMenu {
         menu_selection: gui::MainMenuSelection,
     },
@@ -353,7 +357,42 @@ impl GameState for State {
             }
             RunState::PlayerTurn => {
                 self.run_systems();
-                new_runstate = RunState::MonsterTurn;
+                match *self.ecs.fetch::<RunState>() {
+                    RunState::MagicMapReveal { row, animation } => {
+                        new_runstate = RunState::MagicMapReveal { row, animation }
+                    }
+                    _ => new_runstate = RunState::MonsterTurn,
+                }
+            }
+            RunState::MagicMapReveal { row, animation } => {
+                let mut map = self.ecs.fetch_mut::<Map>();
+                for x in 0..map.width {
+                    let idx = map.xy_idx(x as i32, row);
+                    map.revealed_tiles[idx] = true;
+                }
+                if row == map.height - 1 {
+                    // Cleanup animation
+                    self.ecs.entities().delete(animation).unwrap();
+                    new_runstate = RunState::MonsterTurn;
+                } else {
+                    // Animate
+                    let mut animations = self.ecs.write_storage::<Animation>();
+                    let next_row = if let Some(anim) = animations.get_mut(animation) {
+                        anim.elapsed_ms += ctx.frame_time_ms;
+                        let ms_per_row = anim.duration_ms / map.height as f32;
+                        if anim.elapsed_ms / ms_per_row > row as f32 {
+                            row + 1
+                        } else {
+                            row
+                        }
+                    } else {
+                        row + 1
+                    };
+                    new_runstate = RunState::MagicMapReveal {
+                        row: next_row,
+                        animation,
+                    };
+                }
             }
             RunState::MonsterTurn => {
                 self.run_systems();
@@ -575,6 +614,8 @@ fn main() -> BError {
     state.ecs.register::<ParticleLifetime>();
     state.ecs.register::<HungerClock>();
     state.ecs.register::<ProvidesFood>();
+    state.ecs.register::<MagicMapper>();
+    state.ecs.register::<Animation>();
     state.ecs.register::<SerializationHelper>();
 
     // Resources

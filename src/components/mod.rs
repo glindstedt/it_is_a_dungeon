@@ -164,6 +164,15 @@ pub struct HungerClock {
 #[derive(Component, Serialize, Deserialize, Debug, Clone)]
 pub struct ProvidesFood {}
 
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct MagicMapper {}
+
+#[derive(Component, Serialize, Deserialize, Debug, Clone)]
+pub struct Animation {
+    pub duration_ms: f32,
+    pub elapsed_ms: f32,
+}
+
 #[derive(Component, ConvertSaveload, Debug, Clone)]
 pub struct SerializationHelper {
     pub map: crate::map::Map,
