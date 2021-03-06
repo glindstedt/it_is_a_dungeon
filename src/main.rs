@@ -1,12 +1,5 @@
 use audio::{DesireMusic, Music, SoundResource};
 use bracket_lib::prelude::*;
-use gui::MainMenuSelection;
-use kira::{
-    instance::InstanceSettings,
-    manager::{AudioManager, AudioManagerSettings},
-    sound::SoundSettings,
-    Frame,
-};
 use specs::{
     prelude::*,
     saveload::{SimpleMarker, SimpleMarkerAllocator},
@@ -573,13 +566,10 @@ impl GameState for State {
             // Wait until all loading processes have finished
             RunState::Loading => {
                 let mut sound_resource = self.ecs.fetch_mut::<SoundResource>();
-                let mut audio_manager = self.ecs.fetch_mut::<AudioManager>();
                 if !sound_resource.finished_loading() {
                     bracket_lib::terminal::console::log("Handling load queue...");
                     // TODO handle error
-                    sound_resource
-                        .handle_load_queue(&mut audio_manager)
-                        .unwrap();
+                    sound_resource.handle_load_queue().unwrap();
                 } else {
                     bracket_lib::terminal::console::log("Loaded!");
 
@@ -671,9 +661,6 @@ fn main() -> BError {
     });
     state.ecs.insert(console::Console::new());
 
-    let audio_manager =
-        AudioManager::new(AudioManagerSettings::default()).expect("Unable to initialize audio");
-    state.ecs.insert(audio_manager);
     state.ecs.insert(SoundResource::default());
     state.ecs.insert(DesireMusic {
         music: None,

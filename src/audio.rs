@@ -1,16 +1,17 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
+};
 
 use bracket_lib::prelude::console;
-use flume::{Receiver, Sender};
 use kira::{
     instance::{InstanceSettings, StopInstanceSettings},
-    manager::{error::AddSoundError, AudioManager},
+    manager::{error::AddSoundError, AudioManager, AudioManagerSettings},
     parameter::tween::Tween,
-    sound::{
-        handle::{SoundHandle, SoundHandleError},
-        Sound, SoundSettings,
-    },
+    sound::{handle::SoundHandle, Sound, SoundSettings},
+    CommandError,
 };
+use ringbuf::{Consumer, Producer, RingBuffer};
 use serde::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 use thiserror::Error;
@@ -20,13 +21,16 @@ pub enum SoundError {
     #[error("Sound not loaded: {0}")]
     NotLoaded(String),
     #[error("Sound handle error: {0}")]
-    HandleError(#[from] SoundHandleError),
+    CommandError(#[from] CommandError),
 }
 
 pub struct SoundResource {
+    audio_manager: Arc<Mutex<AudioManager>>,
+
     sounds: HashMap<String, SoundHandle>,
-    tx: Sender<(Asset, Sound)>,
-    rx: Receiver<(Asset, Sound)>,
+    tx: Arc<Mutex<Producer<(Asset, Sound)>>>,
+    rx: Consumer<(Asset, Sound)>,
+
     loading: HashSet<Asset>,
     playing: HashSet<Asset>,
 
@@ -37,12 +41,15 @@ pub struct SoundResource {
 
 impl Default for SoundResource {
     fn default() -> Self {
-        let (tx, rx) = flume::unbounded();
+        let audio_manager = AudioManager::new(AudioManagerSettings::default())
+            .expect("Unable to create audio manager");
+        let (tx, rx) = RingBuffer::<(Asset, Sound)>::new(20).split();
         Self {
+            audio_manager: Arc::new(Mutex::new(audio_manager)),
             sounds: HashMap::new(),
             loading: HashSet::new(),
             playing: HashSet::new(),
-            tx,
+            tx: Arc::new(Mutex::new(tx)),
             rx,
             music_handles: HashMap::new(),
             current_music: None,
@@ -55,22 +62,24 @@ impl SoundResource {
         self.loading.is_empty()
     }
 
-    pub fn handle_load_queue(
-        &mut self,
-        audio_manager: &mut AudioManager,
-    ) -> Result<(), AddSoundError> {
-        while let Ok(loaded) = self.rx.try_recv() {
-            self.loading.remove(&loaded.0);
-            match loaded.0 {
-                Asset::Effect(s) => {
-                    let sound_handle = audio_manager.add_sound(loaded.1)?;
-                    self.sounds.insert(s, sound_handle);
-                }
-                Asset::Music(m) => {
-                    let sound_handle = audio_manager.add_sound(loaded.1)?;
-                    self.music_handles.insert(m, sound_handle);
+    pub fn handle_load_queue(&mut self) -> Result<(), AddSoundError> {
+        match self.audio_manager.lock() {
+            Ok(mut audio_manager) => {
+                while let Some(loaded) = self.rx.pop() {
+                    self.loading.remove(&loaded.0);
+                    match loaded.0 {
+                        Asset::Effect(s) => {
+                            let sound_handle = audio_manager.add_sound(loaded.1)?;
+                            self.sounds.insert(s, sound_handle);
+                        }
+                        Asset::Music(m) => {
+                            let sound_handle = audio_manager.add_sound(loaded.1)?;
+                            self.music_handles.insert(m, sound_handle);
+                        }
+                    };
                 }
             }
+            Err(e) => console::log(format!("Mutex poisoned: {}", e)),
         }
         Ok(())
     }
@@ -88,15 +97,22 @@ impl SoundResource {
         }
         console::log(format!("Loading sound: {}", url));
 
-        let sound_queue = self.tx.clone();
         self.loading.insert(asset.clone());
+
+        let parc = self.tx.clone();
         load_audio_data(url, SoundSettings::default(), move |s| {
-            match sound_queue.send((asset, s)) {
-                Ok(_) => {
-                    console::log("Added sound");
-                }
-                Err(e) => {
-                    console::log(format!("Failed to add sound: {}", e));
+            let mut pushed = false;
+            while !pushed {
+                match parc.lock() {
+                    Ok(mut producer) => {
+                        match producer.push((asset.clone(), s.clone())) {
+                            Ok(_) => pushed = true,
+                            Err(_) => {
+                                // Continue trying
+                            }
+                        }
+                    }
+                    Err(e) => console::log(format!("Mutex poisoned: {}", e)),
                 }
             }
         });
@@ -144,15 +160,22 @@ impl SoundResource {
             }
             console::log(format!("Loading asset: {}", file));
 
-            let sound_queue = self.tx.clone();
             self.loading.insert(asset.clone());
+
+            let parc = self.tx.clone();
             load_audio_data(file, SoundSettings::default(), move |s| {
-                match sound_queue.send((asset, s)) {
-                    Ok(_) => {
-                        console::log("Added sound");
-                    }
-                    Err(e) => {
-                        console::log(format!("Failed to add sound: {}", e));
+                let mut pushed = false;
+                while !pushed {
+                    match parc.lock() {
+                        Ok(mut producer) => {
+                            match producer.push((asset.clone(), s.clone())) {
+                                Ok(_) => pushed = true,
+                                Err(_) => {
+                                    // Continue trying
+                                }
+                            }
+                        }
+                        Err(e) => console::log(format!("Mutex poisoned: {}", e)),
                     }
                 }
             });
