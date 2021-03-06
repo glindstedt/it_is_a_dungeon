@@ -256,7 +256,7 @@ impl Music {
     pub fn filename(&self) -> &'static str {
         match self {
             Music::Abyss => "assets/audio/roguelike_abyss.ogg",
-            Music::GameOver => "assets/audio/gr1.ogg",
+            Music::GameOver => "assets/audio/roguelike_abyss.ogg", // TODO make replacement
         }
     }
 }
