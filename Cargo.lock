@@ -1159,6 +1159,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "it_is_a_dungeon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bracket-lib",
+ "js-sys",
+ "kira",
+ "ringbuf",
+ "serde",
+ "serde_json",
+ "specs",
+ "strum",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "itoa"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2021,25 +2040,6 @@ name = "rle-decode-fast"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cabe4fa914dec5870285fa7f71f602645da47c486e68486d2b4ceb4a343e90ac"
-
-[[package]]
-name = "roguelike_tutorial"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bracket-lib",
- "js-sys",
- "kira",
- "ringbuf",
- "serde",
- "serde_json",
- "specs",
- "strum",
- "thiserror",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
 
 [[package]]
 name = "rustc-demangle"

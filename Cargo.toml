@@ -1,8 +1,9 @@
 [package]
-name = "roguelike_tutorial"
+name = "it_is_a_dungeon"
 version = "0.1.0"
 authors = ["Gustaf Lindstedt <gustaflindstedt@protonmail.com>"]
 edition = "2018"
+license = "MIT"
 # This option requires nightly
 # https://github.com/rust-lang/cargo/issues/2524
 # https://github.com/rust-lang/cargo/issues/7914

@@ -1,6 +1,8 @@
-TODO
+It is a dungeon
+===============
 
-* action sounds (make into system)
-* player name
-* music system
-* dedup new_game/game_over_cleanup
+This is just me following along the excellent Rust roguelike tutorial by
+Herbert Wolverson:
+[https://bfnightly.bracketproductions.com/](https://bfnightly.bracketproductions.com/)
+
+There are some deviations, for example I've added sound effects and music.
